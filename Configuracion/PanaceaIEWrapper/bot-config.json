@@ -1,0 +1,84 @@
+{
+  "baseUrl": "http://181.51.196.194",
+  "variables": {
+    "username": "1016018747",
+    "password": "Gole2026",
+    "rips_fecha_inicio": "01-04-2026",
+    "rips_fecha_fin": "30-04-2026",
+    "rips_cedula": "1016018747"
+  },
+  "defaultHeaders": {
+    "User-Agent": "PanaceaBot/1.0"
+  },
+  "steps": [
+    {
+      "name": "Cargar formulario login",
+      "method": "GET",
+      "path": "/Panacea/LogOnForm.aspx?ReturnUrl=%2fPanacea",
+      "saveResponseAs": "homeHtml",
+      "extractRegex": {
+        "viewstate": "id=\"__VIEWSTATE\"[^>]*value=\"([^\"]*)\"",
+        "viewstate1": "id=\"__VIEWSTATE1\"[^>]*value=\"([^\"]*)\"",
+        "viewstate2": "id=\"__VIEWSTATE2\"[^>]*value=\"([^\"]*)\"",
+        "viewstate3": "id=\"__VIEWSTATE3\"[^>]*value=\"([^\"]*)\"",
+        "viewstate4": "id=\"__VIEWSTATE4\"[^>]*value=\"([^\"]*)\"",
+        "viewstate5": "id=\"__VIEWSTATE5\"[^>]*value=\"([^\"]*)\"",
+        "viewstate6": "id=\"__VIEWSTATE6\"[^>]*value=\"([^\"]*)\"",
+        "viewstate7": "id=\"__VIEWSTATE7\"[^>]*value=\"([^\"]*)\"",
+        "viewstate8": "id=\"__VIEWSTATE8\"[^>]*value=\"([^\"]*)\"",
+        "viewstate9": "id=\"__VIEWSTATE9\"[^>]*value=\"([^\"]*)\"",
+        "viewstate10": "id=\"__VIEWSTATE10\"[^>]*value=\"([^\"]*)\"",
+        "viewstate11": "id=\"__VIEWSTATE11\"[^>]*value=\"([^\"]*)\"",
+        "viewstate12": "id=\"__VIEWSTATE12\"[^>]*value=\"([^\"]*)\"",
+        "viewstate13": "id=\"__VIEWSTATE13\"[^>]*value=\"([^\"]*)\"",
+        "viewstate14": "id=\"__VIEWSTATE14\"[^>]*value=\"([^\"]*)\"",
+        "viewstate15": "id=\"__VIEWSTATE15\"[^>]*value=\"([^\"]*)\"",
+        "viewstate16": "id=\"__VIEWSTATE16\"[^>]*value=\"([^\"]*)\"",
+        "viewstategenerator": "id=\"__VIEWSTATEGENERATOR\"[^>]*value=\"([^\"]*)\"",
+        "eventvalidation": "id=\"__EVENTVALIDATION\"[^>]*value=\"([^\"]*)\""
+      },
+      "successWhenContains": [
+        "UserNameTextBox",
+        "PasswordTextBox"
+      ],
+      "delayMs": 300
+    },
+    {
+      "name": "Enviar login",
+      "method": "POST",
+      "path": "/Panacea/LogOnForm.aspx?ReturnUrl=%2fPanacea",
+      "headers": {
+        "Referer": "http://181.51.196.194/Panacea/LogOnForm.aspx?ReturnUrl=%2fPanacea"
+      },
+      "contentType": "application/x-www-form-urlencoded",
+      "bodyTemplate": "__EVENTTARGET=&__EVENTARGUMENT=&__VIEWSTATEFIELDCOUNT=17&__VIEWSTATE={{viewstate}}&__VIEWSTATE1={{viewstate1}}&__VIEWSTATE2={{viewstate2}}&__VIEWSTATE3={{viewstate3}}&__VIEWSTATE4={{viewstate4}}&__VIEWSTATE5={{viewstate5}}&__VIEWSTATE6={{viewstate6}}&__VIEWSTATE7={{viewstate7}}&__VIEWSTATE8={{viewstate8}}&__VIEWSTATE9={{viewstate9}}&__VIEWSTATE10={{viewstate10}}&__VIEWSTATE11={{viewstate11}}&__VIEWSTATE12={{viewstate12}}&__VIEWSTATE13={{viewstate13}}&__VIEWSTATE14={{viewstate14}}&__VIEWSTATE15={{viewstate15}}&__VIEWSTATE16={{viewstate16}}&__VIEWSTATEGENERATOR={{viewstategenerator}}&__SCROLLPOSITIONX=0&__SCROLLPOSITIONY=0&__EVENTVALIDATION={{eventvalidation}}&Automatico=1&UserNameTextBox={{username}}&FlagDominio=0&UserAlterno=&Url=&PasswordTextBox={{password}}&ImageButton1.x=21&ImageButton1.y=10",
+      "saveResponseAs": "loginResponse",
+      "successWhenContains": [
+        "Panacea"
+      ],
+      "failWhenContains": [
+        "UserNameTextBox",
+        "PasswordTextBox",
+        "incorrect",
+        "inválid",
+        "inval",
+        "contrase"
+      ],
+      "delayMs": 500
+    },
+    {
+      "name": "Validar sesion real",
+      "method": "GET",
+      "path": "/Panacea",
+      "failWhenContains": [
+        "UserNameTextBox",
+        "PasswordTextBox",
+        "Datos incorrectos",
+        "LogOnForm.aspx"
+      ],
+      "successWhenContains": [
+        "Panacea"
+      ]
+    }
+  ]
+}

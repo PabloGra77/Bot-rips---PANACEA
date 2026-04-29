@@ -1,0 +1,23 @@
+# Build outputs
+*.exe
+*.dll
+*.pdb
+*.obj
+*.user
+*.suo
+*.cache
+
+# Carpetas de build
+bin/
+obj/
+Debug/
+x64/
+x86/
+
+# Logs
+*.log
+
+# Archivos temporales
+*.tmp
+*.bak
+.vs/
