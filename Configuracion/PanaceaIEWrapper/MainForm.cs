@@ -57,10 +57,16 @@ namespace PanaceaIEWrapper
         private List<RipsRecord> _ripsRecords;
         private int _ripsRecordIndex;
 
+        // Nuevos campos para la UI mejorada
+        private string _overrideExcelPath;
+        private bool _botPaused;
+
         [DllImport("wininet.dll", SetLastError = true, CharSet = CharSet.Auto)]
         private static extern bool InternetSetCookie(string lpszUrl, string lpszCookieName, string lpszCookieData);
 
-        public MainForm()
+        public MainForm() : this(null, null, null) { }
+
+        public MainForm(string username, string password, string excelPath)
         {
             InitializeComponent();
             WindowState = FormWindowState.Maximized;
@@ -69,6 +75,11 @@ namespace PanaceaIEWrapper
             _authOutcomeTimer = new System.Windows.Forms.Timer { Interval = 1000 };
             _authOutcomeTimer.Tick += AuthOutcomeTimer_Tick;
             _uiLogPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Panacea", "ui-autologin.log");
+
+            // Credenciales y archivo pre-cargados desde StartupForm
+            if (!string.IsNullOrWhiteSpace(username)) _username = username;
+            if (!string.IsNullOrWhiteSpace(password)) _password = password;
+            if (!string.IsNullOrWhiteSpace(excelPath)) _overrideExcelPath = excelPath;
         }
 
         private void MainForm_Load(object sender, EventArgs e)
@@ -95,8 +106,14 @@ namespace PanaceaIEWrapper
                     try { webBrowser1.Navigate("http://181.51.196.194/Panacea/LogOnForm.aspx"); } catch { }
                 }
             };
-            LoadCredentials();
-            LoadRipsExcel();
+            // Solo cargar credenciales desde config si no llegaron del StartupForm
+            if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
+                LoadCredentials();
+
+            // LoadRipsExcel() se llama al presionar "Correr Bot", no aquí.
+            // Mostrar archivo seleccionado en la barra lateral si ya viene del StartupForm
+            if (!string.IsNullOrWhiteSpace(_overrideExcelPath))
+                txtExcelPath.Text = System.IO.Path.GetFileName(_overrideExcelPath);
 
             // IE COM deshabilitado para evitar doble ventana - todo via WebBrowser embebido
 
@@ -246,6 +263,13 @@ namespace PanaceaIEWrapper
             if (_waitingForUserConvenio)
             {
                 WriteUiLog("DocumentCompleted ignorado (esperando convenio manual): " + url);
+                return;
+            }
+
+            // Bot en pausa — no procesar eventos de navegacion
+            if (_botPaused)
+            {
+                WriteUiLog("DocumentCompleted ignorado (bot pausado): " + url);
                 return;
             }
 
@@ -1059,6 +1083,7 @@ namespace PanaceaIEWrapper
             catch
             {
             }
+            AppendSidebarLog(message);
         }
 
         private bool TryClassicIeAutoLogin()
@@ -1964,19 +1989,26 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
             _ripsRecords = new List<RipsRecord>();
             try
             {
-                // Buscar BASE RIPS.xlsx en la carpeta "base" junto al exe
-                string baseFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "base");
-                string[] candidates = Directory.Exists(baseFolder)
-                    ? Directory.GetFiles(baseFolder, "*.xlsx", SearchOption.TopDirectoryOnly)
-                    : new string[0];
-
-                if (candidates.Length == 0)
+                // Ruta del archivo: primero la seleccionada por el usuario, luego la carpeta 'base'
+                string xlsxPath = null;
+                if (!string.IsNullOrWhiteSpace(_overrideExcelPath) && File.Exists(_overrideExcelPath))
                 {
-                    WriteUiLog("LoadRipsExcel: no se encontro archivo .xlsx en carpeta 'base'.");
-                    return;
+                    xlsxPath = _overrideExcelPath;
                 }
+                else
+                {
+                    string baseFolder = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "base");
+                    string[] candidates = Directory.Exists(baseFolder)
+                        ? Directory.GetFiles(baseFolder, "*.xlsx", SearchOption.TopDirectoryOnly)
+                        : new string[0];
 
-                string xlsxPath = candidates[0];
+                    if (candidates.Length == 0)
+                    {
+                        WriteUiLog("LoadRipsExcel: no se encontro archivo .xlsx en carpeta 'base'.");
+                        return;
+                    }
+                    xlsxPath = candidates[0];
+                }
                 WriteUiLog("LoadRipsExcel: leyendo " + xlsxPath);
 
                 using (var pkg = new ExcelPackage(new FileInfo(xlsxPath)))
@@ -2162,6 +2194,8 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
 
         private void StartRipsFlow()
         {
+            UpdateBotProgress();
+            UpdateSidebarStatus("Procesando CC " + (_ripsRecordIndex + 1) + " de " + (_ripsRecords?.Count ?? 0) + "...");
             if (_ripsRecords == null || _ripsRecords.Count == 0)
             {
                 WriteUiLog("StartRipsFlow: sin registros en BASE RIPS. Usando valores de config.");
@@ -3167,6 +3201,8 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
         {
             _ripsRecordIndex++;
             WriteUiLog(string.Format("Registro {0} completado. Total={1}", _ripsRecordIndex, _ripsRecords != null ? _ripsRecords.Count : 0));
+            UpdateBotProgress();
+            SaveProgressState();
             if (_ripsRecords != null && _ripsRecordIndex < _ripsRecords.Count)
             {
                 // Resetear todos los flags de estado de flujo,
@@ -3237,6 +3273,9 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
             {
                 _ripsFlowDone = true;
                 WriteUiLog("=== Flujo RIPS completado. Todos los registros procesados. ===");
+                UpdateBotProgress();
+                SaveProgressState();
+                UpdateSidebarStatus("Completado: todos los registros procesados.");
             }
         }
 
@@ -3328,6 +3367,213 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                 WriteUiLog("OCR error: " + ex.Message);
             }
             return null;
+        }
+
+        // ── NUEVOS MÉTODOS DE UI LATERAL ────────────────────────────────────
+
+        // Seleccionar archivo Excel manualmente
+        private void btnBrowseExcel_Click(object sender, EventArgs e)
+        {
+            using (var dlg = new OpenFileDialog())
+            {
+                dlg.Title = "Seleccionar archivo base Excel";
+                dlg.Filter = "Archivos Excel (*.xlsx)|*.xlsx";
+                dlg.CheckFileExists = true;
+                if (dlg.ShowDialog() == DialogResult.OK)
+                {
+                    _overrideExcelPath = dlg.FileName;
+                    txtExcelPath.Text = System.IO.Path.GetFileName(dlg.FileName);
+                    WriteUiLog("Archivo base seleccionado: " + dlg.FileName);
+                    // Recargar lista de registros con el nuevo archivo
+                    LoadRipsExcel();
+                    UpdateBotProgress();
+                }
+            }
+        }
+
+        // Correr Bot
+        private void btnCorrerBot_Click(object sender, EventArgs e)
+        {
+            if (_ripsRecords == null || _ripsRecords.Count == 0)
+            {
+                MessageBox.Show("Cargue primero un archivo base Excel (.xlsx).",
+                    "Sin datos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+            if (_ripsFlowStarted && !_ripsFlowDone)
+            {
+                MessageBox.Show("El bot ya está corriendo.", "Aviso",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            _botPaused = false;
+            _ripsRecordIndex = 0;
+            _ripsFlowStarted = false;
+            _ripsFlowDone = false;
+            UpdateSidebarStatus("Iniciando bot...");
+            UpdateBotProgress();
+            // Renavegar a la URL principal para disparar el flujo
+            webBrowser1.Navigate(PanaceaUrl);
+        }
+
+        // Pausar Bot
+        private void btnPausarBot_Click(object sender, EventArgs e)
+        {
+            if (!_ripsFlowStarted || _ripsFlowDone)
+            {
+                MessageBox.Show("El bot no está corriendo.", "Aviso",
+                    MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+            _botPaused = true;
+            _ripsTimer?.Stop();
+            _completarTimer?.Stop();
+            UpdateSidebarStatus("Bot pausado.");
+            WriteUiLog("Bot pausado por el usuario.");
+        }
+
+        // Continuar (desde sidebar, para reanudar luego de pausa)
+        private void btnContinuarSidebar_Click(object sender, EventArgs e)
+        {
+            if (_botPaused)
+            {
+                _botPaused = false;
+                UpdateSidebarStatus("Reanudando bot...");
+                WriteUiLog("Bot reanudado por el usuario.");
+                // Reactivar el timer que corresponda
+                if (_awaitingCompletarForm || _completarStep > 0)
+                    _completarTimer?.Start();
+                else if (_ripsFlowStarted && !_ripsFlowDone)
+                    _ripsTimer?.Start();
+                return;
+            }
+            // Si está esperando selección de convenio manual, delegar al método original
+            if (_waitingForUserConvenio)
+            {
+                btnContinuarBot_Click(sender, e);
+            }
+        }
+
+        // Generar informe Excel
+        private void btnGenerarInforme_Click(object sender, EventArgs e)
+        {
+            try
+            {
+                var state = ProgressState.Load();
+                string path = ReportGenerator.Generate(state);
+                System.Diagnostics.Process.Start(path);
+                WriteUiLog("Informe generado: " + path);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Error al generar el informe:\n" + ex.Message,
+                    "Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        // Panel Admin
+        private void btnAdmin_Click(object sender, EventArgs e)
+        {
+            var form = new AdminForm();
+            form.Show(this);
+        }
+
+        // Actualizar barra de progreso y etiqueta
+        private void UpdateBotProgress()
+        {
+            try
+            {
+                int total = _ripsRecords?.Count ?? 0;
+                int done  = _ripsRecordIndex;
+                lblProgress.Text = string.Format("Registros: {0} / {1}", done, total);
+                if (total > 0)
+                {
+                    progressBar.Maximum = total;
+                    progressBar.Value   = Math.Min(done, total);
+                }
+                else
+                {
+                    progressBar.Value = 0;
+                }
+            }
+            catch { }
+        }
+
+        // Actualizar etiqueta de estado en la barra lateral
+        private void UpdateSidebarStatus(string message)
+        {
+            try
+            {
+                lblStatus.Text = "  " + message;
+            }
+            catch { }
+        }
+
+        // Agregar una línea al log de la barra lateral
+        private void AppendSidebarLog(string message)
+        {
+            try
+            {
+                string line = "[" + DateTime.Now.ToString("HH:mm:ss") + "] " + message;
+                if (txtLog.InvokeRequired)
+                {
+                    txtLog.BeginInvoke(new Action(() => AppendLine(line)));
+                }
+                else
+                {
+                    AppendLine(line);
+                }
+            }
+            catch { }
+        }
+
+        private void AppendLine(string line)
+        {
+            txtLog.AppendText(line + "\r\n");
+            // Mantener scroll al final
+            txtLog.SelectionStart = txtLog.Text.Length;
+            txtLog.ScrollToCaret();
+        }
+
+        // Guardar estado de progreso actual
+        private void SaveProgressState()
+        {
+            try
+            {
+                var state = ProgressState.Load();
+                state.TotalRecords = _ripsRecords?.Count ?? 0;
+                state.LastUpdate   = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                // Registrar el registro actual como procesado si aún no fue registrado
+                if (_ripsRecords != null && _ripsRecordIndex > 0 &&
+                    _ripsRecordIndex <= _ripsRecords.Count)
+                {
+                    var rec = _ripsRecords[_ripsRecordIndex - 1];
+                    if (state.ProcessedRecords == null)
+                        state.ProcessedRecords = new System.Collections.Generic.List<ProcessedRecord>();
+
+                    bool exists = false;
+                    foreach (var p in state.ProcessedRecords)
+                    {
+                        if (p.CC == rec.CC && p.FechaInicio == rec.FechaInicio)
+                        { exists = true; break; }
+                    }
+                    if (!exists)
+                    {
+                        state.ProcessedRecords.Add(new ProcessedRecord
+                        {
+                            CC          = rec.CC,
+                            FechaInicio = rec.FechaInicio,
+                            FechaFin    = rec.FechaFin,
+                            Convenio    = rec.TipoConvenio,
+                            Estado      = "Completado",
+                            Timestamp   = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")
+                        });
+                    }
+                }
+                state.Save();
+            }
+            catch { }
         }
 
     }

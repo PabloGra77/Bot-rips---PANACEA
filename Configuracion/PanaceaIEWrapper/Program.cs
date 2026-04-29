@@ -32,7 +32,18 @@ namespace PanaceaIEWrapper
             Application.SetCompatibleTextRenderingDefault(false);
             SelfInstaller.EnsureShortcut();
             AutoUpdater.CheckAndApply();
-            Application.Run(new MainForm());
+
+            // Pantalla de configuración inicial
+            using (var startup = new StartupForm())
+            {
+                if (startup.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+                    return; // El usuario canceló
+
+                Application.Run(new MainForm(
+                    startup.PanaceaUsername,
+                    startup.PanaceaPassword,
+                    startup.SelectedExcelPath));
+            }
         }
     }
 }
