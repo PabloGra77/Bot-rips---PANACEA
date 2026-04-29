@@ -1,10 +1,10 @@
-using System;
+﻿using System;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace PanaceaIEWrapper
@@ -17,86 +17,126 @@ namespace PanaceaIEWrapper
         private static readonly string ApiUrl =
             "https://api.github.com/repos/" + GitHubOwner + "/" + GitHubRepo + "/releases/latest";
 
+        private sealed class UpdateInfo
+        {
+            public string NewVersion     { get; set; }
+            public string CurrentVersion { get; set; }
+            public string DownloadUrl    { get; set; }
+        }
+
         public static void CheckAndApply()
         {
             try
             {
-                CheckAndApplyAsync().GetAwaiter().GetResult();
+                UpdateInfo info = FetchUpdateInfo();
+                if (info == null) return;
+
+                using (var form = new UpdateForm(info.CurrentVersion, info.NewVersion))
+                {
+                    form.ShowDialog();
+                    if (!form.ShouldUpdate) return;
+                }
+
+                DownloadAndApply(info);
+            }
+            catch { }
+        }
+
+        private static UpdateInfo FetchUpdateInfo()
+        {
+            try
+            {
+                using (var client = new HttpClient())
+                {
+                    client.DefaultRequestHeaders.Add("User-Agent", "PanaceaAutoUpdater/1.0");
+                    client.Timeout = TimeSpan.FromSeconds(15);
+
+                    string json = client.GetStringAsync(ApiUrl).GetAwaiter().GetResult();
+
+                    Match tagMatch = Regex.Match(json, "\"tag_name\"\\s*:\\s*\"v?([^\"]+)\"");
+                    if (!tagMatch.Success) return null;
+
+                    if (!Version.TryParse(tagMatch.Groups[1].Value, out Version remoteVersion)) return null;
+
+                    Version localVersion = Assembly.GetExecutingAssembly().GetName().Version;
+                    if (remoteVersion <= localVersion) return null;
+
+                    Match urlMatch = Regex.Match(json,
+                        "\"browser_download_url\"\\s*:\\s*\"([^\"]+\\.exe)\"",
+                        RegexOptions.IgnoreCase);
+                    if (!urlMatch.Success) return null;
+
+                    return new UpdateInfo
+                    {
+                        CurrentVersion = localVersion.ToString(3),
+                        NewVersion     = remoteVersion.ToString(3),
+                        DownloadUrl    = urlMatch.Groups[1].Value
+                    };
+                }
             }
             catch
             {
-                // No interrumpir la app si falla la verificacion de actualizacion
+                return null;
             }
         }
 
-        private static async Task CheckAndApplyAsync()
+        private static void DownloadAndApply(UpdateInfo info)
         {
-            using (var client = new HttpClient())
+            byte[]    data       = null;
+            Exception downloadEx = null;
+
+            using (var dlgProgress = new DownloadProgressForm())
             {
-                client.DefaultRequestHeaders.Add("User-Agent", "PanaceaAutoUpdater/1.0");
-                client.Timeout = TimeSpan.FromSeconds(15);
-
-                string json;
-                try
+                var worker = new BackgroundWorker();
+                worker.DoWork += (s, e) =>
                 {
-                    json = await client.GetStringAsync(ApiUrl).ConfigureAwait(false);
-                }
-                catch
-                {
-                    // Sin internet o repositorio no configurado: continuar normalmente
-                    return;
-                }
+                    try
+                    {
+                        using (var client = new HttpClient())
+                        {
+                            client.DefaultRequestHeaders.Add("User-Agent", "PanaceaAutoUpdater/1.0");
+                            client.Timeout = TimeSpan.FromMinutes(5);
+                            data = client.GetByteArrayAsync(info.DownloadUrl).GetAwaiter().GetResult();
+                        }
+                    }
+                    catch (Exception ex) { downloadEx = ex; }
+                };
+                worker.RunWorkerCompleted += (s, e) => dlgProgress.Close();
+                worker.RunWorkerAsync();
 
-                // Extraer tag_name  ej: "v1.2.0"
-                Match tagMatch = Regex.Match(json, "\"tag_name\"\\s*:\\s*\"v?([^\"]+)\"");
-                if (!tagMatch.Success) return;
-
-                if (!Version.TryParse(tagMatch.Groups[1].Value, out Version remoteVersion)) return;
-
-                Version localVersion = Assembly.GetExecutingAssembly().GetName().Version;
-                if (remoteVersion <= localVersion) return;
-
-                // Extraer URL de descarga del primer asset .exe en el release
-                Match urlMatch = Regex.Match(json,
-                    "\"browser_download_url\"\\s*:\\s*\"([^\"]+\\.exe)\"",
-                    RegexOptions.IgnoreCase);
-                if (!urlMatch.Success) return;
-
-                string downloadUrl = urlMatch.Groups[1].Value;
-
-                DialogResult dr = MessageBox.Show(
-                    "Hay una nueva version disponible: v" + remoteVersion + "\n\n" +
-                    "La aplicacion se actualizara y reiniciara automaticamente.\n" +
-                    "Version actual: v" + localVersion.ToString(3),
-                    "Actualizacion disponible",
-                    MessageBoxButtons.OKCancel,
-                    MessageBoxIcon.Information);
-
-                if (dr != DialogResult.OK) return;
-
-                string exePath = Assembly.GetExecutingAssembly().Location;
-                string tempPath = exePath + ".new";
-
-                byte[] data = await client.GetByteArrayAsync(downloadUrl).ConfigureAwait(false);
-                File.WriteAllBytes(tempPath, data);
-
-                // Script que espera a que cierre el proceso, reemplaza el exe y reinicia
-                string batPath = Path.Combine(Path.GetTempPath(), "panacea_update.bat");
-                File.WriteAllText(batPath,
-                    "@echo off\r\n" +
-                    "timeout /t 2 /nobreak >nul\r\n" +
-                    "move /y \"" + tempPath + "\" \"" + exePath + "\"\r\n" +
-                    "start \"\" \"" + exePath + "\"\r\n" +
-                    "del \"%~f0\"\r\n");
-
-                Process.Start(new ProcessStartInfo("cmd.exe", "/c \"" + batPath + "\"")
-                {
-                    WindowStyle = ProcessWindowStyle.Hidden,
-                    CreateNoWindow = true
-                });
-
-                Environment.Exit(0);
+                dlgProgress.ShowDialog();
             }
+
+            if (downloadEx != null || data == null)
+            {
+                MessageBox.Show(
+                    "No se pudo descargar la actualizacion.\n\n" +
+                    (downloadEx?.Message ?? "Respuesta vacia del servidor."),
+                    "Panacea RIPS",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
+                return;
+            }
+
+            string exePath  = Assembly.GetExecutingAssembly().Location;
+            string tempPath = exePath + ".new";
+            File.WriteAllBytes(tempPath, data);
+
+            string batPath = Path.Combine(Path.GetTempPath(), "panacea_update.bat");
+            File.WriteAllText(batPath,
+                "@echo off\r\n" +
+                "timeout /t 2 /nobreak >nul\r\n" +
+                "move /y \"" + tempPath + "\" \"" + exePath + "\"\r\n" +
+                "start \"\" \"" + exePath + "\"\r\n" +
+                "del \"%~f0\"\r\n");
+
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", "/c \"" + batPath + "\"")
+            {
+                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
+                CreateNoWindow = true
+            });
+
+            Environment.Exit(0);
         }
     }
 }

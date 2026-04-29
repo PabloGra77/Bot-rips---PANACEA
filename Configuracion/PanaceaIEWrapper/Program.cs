@@ -30,6 +30,7 @@ namespace PanaceaIEWrapper
 
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            SelfInstaller.EnsureShortcut();
             AutoUpdater.CheckAndApply();
             Application.Run(new MainForm());
         }
