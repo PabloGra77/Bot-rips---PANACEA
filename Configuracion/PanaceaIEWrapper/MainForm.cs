@@ -1926,37 +1926,61 @@ namespace PanaceaIEWrapper
                         } catch (Exception ex) { WriteUiLog("Sede click err: " + ex.Message); }
                         break;
 case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dropdown)
+                        // Loguear todos los keys de window con 'contingencia' para diagnostico
+                        string keysDbg = JsInFrame(
+                            "(function(){var r=[];for(var k in window){try{if(k.toLowerCase().indexOf('contingencia')>=0){var o=window[k];r.push(k+':type='+(typeof o));}  }catch(e){}}return r.join('||').substring(0,500)||'NONE';})()" );
+                        WriteUiLog("Contingencia keys: " + keysDbg);
                         r = JsInFrame(
                             "(function(){" +
-                            "  try{" +
-                            "    var coll=ASPxClientControl.GetControlCollection();" +
-                            "    var cb=coll.GetByName('ContingenciasComboBox');" +
+                            // 1) ASPxClientControl collection
+                            "  try{var coll=ASPxClientControl.GetControlCollection();var cb=coll.GetByName('ContingenciasComboBox');" +
                             "    if(cb&&cb.SetText){cb.SetText('FACTURACION');return 'DX-TEXT';}" +
                             "    if(cb&&cb.SetValue){cb.SetValue('FACTURACION');return 'DX-VALUE';}" +
-                            "    if(cb&&cb.SetSelectedIndex){" +
-                            "      var items=document.querySelectorAll('[id^=\"ContingenciasComboBox_DDD_L_LBI\"]');" +
-                            "      var idx=1;for(var i=0;i<items.length;i++){if((items[i].innerText||'').toUpperCase().indexOf('FACTURACION')>=0){idx=i;break;}}" +
-                            "      cb.SetSelectedIndex(idx);return 'DX-INDEX:'+idx;" +
-                            "    }" +
                             "  }catch(e){}" +
+                            // 2) window keys scan con 'contingencia'
+                            "  for(var k in window){try{if(k.toLowerCase().indexOf('contingencia')>=0){var o=window[k];" +
+                            "    if(o&&typeof o.SetText==='function'){o.SetText('FACTURACION');return 'WIN_TEXT:'+k;}" +
+                            "    if(o&&typeof o.SetValue==='function'){o.SetValue('FACTURACION');return 'WIN_VAL:'+k;}" +
+                            "  }}catch(e){}}" +
+                            // 3) Dropdown button click
+                            "  var btn=document.getElementById('ContingenciasComboBox_B-1');" +
+                            "  if(btn){btn.click();return 'DROPDOWN_OPEN';}" +
                             "  return 'DX-FAIL';" +
                             "})()");
                         WriteUiLog("Contingencia DX API: " + r);
-                        if (r == "DX-FAIL" || r.StartsWith("EX") || r.StartsWith("NO_"))
+                        if (r == "DX-FAIL" || r == "DROPDOWN_OPEN" || r.StartsWith("EX") || r.StartsWith("NO_"))
                         {
-                            // Fallback: forzar valor directo en los campos ocultos y visibles
-                            r = JsInFrame(
-                                "(function(){" +
-                                "  var vi=document.getElementById('ContingenciasComboBox_VI');" +
-                                "  if(vi){vi.value='1';}" +
-                                "  var inp=document.getElementById('ContingenciasComboBox_I');" +
-                                "  if(inp){inp.value='FACTURACION';" +
-                                "    try{inp.fireEvent('onchange');}catch(e){" +
-                                "      inp.dispatchEvent(new Event('change',{bubbles:true}));}" +
-                                "  }" +
-                                "  return 'DIRECT-SET';" +
-                                "})()");
-                            WriteUiLog("Contingencia fallback: " + r);
+                            if (r == "DROPDOWN_OPEN")
+                            {
+                                // Esperar que abra el dropdown y luego hacer click en FACTURACION
+                                System.Threading.Thread.Sleep(600);
+                                r = JsInFrame(
+                                    "(function(){" +
+                                    "  var item=document.getElementById('ContingenciasComboBox_DDD_L_LBI1T0');" +
+                                    "  if(item){item.click();return 'ITEM_CLICKED';}" +
+                                    "  var tds=document.getElementsByTagName('td');" +
+                                    "  for(var i=0;i<tds.length;i++){if((tds[i].innerText||'').toUpperCase().indexOf('FACTURACION')>=0){tds[i].click();return 'TEXT_CLICKED:'+tds[i].id;}}" +
+                                    "  return 'ITEM_NF';" +
+                                    "})()");
+                                WriteUiLog("Contingencia dropdown item: " + r);
+                            }
+                            else
+                            {
+                                // Fallback: forzar valor directo — usar createEventObject() compatible con IE
+                                r = JsInFrame(
+                                    "(function(){" +
+                                    "  var vi=document.getElementById('ContingenciasComboBox_VI');" +
+                                    "  if(vi){vi.value='1';}" +
+                                    "  var inp=document.getElementById('ContingenciasComboBox_I');" +
+                                    "  if(inp){inp.value='FACTURACION';" +
+                                    "    try{inp.fireEvent('onchange');}catch(e){" +
+                                    "      try{var ev=document.createEvent('Event');ev.initEvent('change',true,true);inp.dispatchEvent(ev);}catch(e2){}" +
+                                    "    }" +
+                                    "  }" +
+                                    "  return 'DIRECT-SET';" +
+                                    "})()");
+                                WriteUiLog("Contingencia fallback: " + r);
+                            }
                         }
                         break;
 
@@ -2039,9 +2063,9 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                         string header = (ws.Cells[1, c].Value ?? string.Empty).ToString().Trim().ToUpperInvariant();
                         if (header == "CC") colCC = c;
                         else if (header.Contains("INICIO")) colFI = c;
+                        else if (header.Contains("FINALIDAD")) colFinalidad = c;  // ANTES de FIN: "FINALIDAD" contiene "FIN"
                         else if (header.Contains("FIN")) colFF = c;
                         else if (header.Contains("CONVENIO")) colConv = c;
-                        else if (header.Contains("FINALIDAD")) colFinalidad = c;
                         else if (header.Contains("DIAGN")) colDiag = c;
                         else if (header.Contains("CAUSA")) colCausa = c;
                     }
@@ -2494,86 +2518,78 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                         break;
                     }
 
-                    case 4: // SELECCIONAR el convenio en el grid/popup que abrió la lupa
+                    case 4: // SELECCIONAR fila del ConveniosDataGrid (Infragistics) que abre la lupa
                     {
                         string convenio4 = (_ripsRecords[_ripsRecordIndex].TipoConvenio ?? "").Trim();
-                        WriteUiLog("RIPS step4 seleccionando convenio: [" + convenio4 + "]");
-                        string eConv4 = EscapeJs(convenio4);
-                        // Diagnostico: listar todos los selects con sus opciones y tds/spans visibles
+                        WriteUiLog("RIPS step4 seleccionando convenio en ConveniosDataGrid: [" + convenio4 + "]");
+                        string eConv4 = EscapeJs(convenio4.ToUpperInvariant());
+                        // Diagnostico: estado del ConveniosDataGrid
                         string diag4 = JsInRips(
                             "(function(){" +
-                            "  var r=[];" +
-                            "  var sels=document.querySelectorAll('select');" +
-                            "  for(var i=0;i<sels.length;i++){var op=[];for(var j=0;j<sels[i].options.length;j++)op.push(sels[i].options[j].text.substring(0,30));r.push('SEL['+sels[i].id+']:['+op.join('|')+']');}" +
-                            "  var inps=document.querySelectorAll('input');" +
-                            "  for(var i=0;i<inps.length;i++){if(inps[i].id){var id=inps[i].id.toLowerCase();if(id.indexOf('conv')>=0||id.indexOf('tipo')>=0||id.indexOf('plan')>=0)r.push('INP['+inps[i].id+']:'+inps[i].value);}}" +
-                            "  return r.join('||').substring(0,3000);" +
+                            "  var hf=document.getElementById('ctl00_ctl00_ContentPlaceHolder1_mainContent_ConveniosDataGrid');" +
+                            "  var hfVal=hf?hf.value.substring(0,80):'NO_HF';" +
+                            "  var rows=document.querySelectorAll('[id*=ConveniosDataGrid_r_]');" +
+                            "  var rowsTxt='';for(var i=0;i<Math.min(rows.length,5);i++)rowsTxt+='['+i+':'+( rows[i].innerText||rows[i].textContent||'').trim().substring(0,40)+']';" +
+                            "  return 'HF='+hfVal+'||ROWS='+rows.length+'||'+rowsTxt;" +
                             "})()");
                         WriteUiLog("RIPS step4 DIAG: " + diag4);
                         bool convenioOk = false;
-                        // Estrategia 1: <select> por texto de opcion
-                        string selR4 = JsInRips(
+                        // Estrategia 1: Infragistics igtbl API — click en la fila que coincide con el convenio
+                        string igR4 = JsInRips(
                             "(function(){" +
-                            "  var txt='" + eConv4 + "'.toLowerCase();" +
-                            "  var sels=document.querySelectorAll('select');" +
-                            "  for(var i=0;i<sels.length;i++){" +
-                            "    for(var j=0;j<sels[i].options.length;j++){" +
-                            "      var t=(sels[i].options[j].text||'').toLowerCase();" +
-                            "      if(t===txt||t.indexOf(txt)>=0){" +
-                            "        sels[i].selectedIndex=j;" +
-                            "        try{sels[i].fireEvent('onchange');}catch(e){}" +
-                            "        return 'SEL_OK:'+sels[i].id+'|idx='+j+'|val='+sels[i].options[j].value;" +
+                            "  var conv='" + eConv4 + "';" +
+                            "  try{" +
+                            "    var g=igtbl_getGridById('ctl00_ctl00_ContentPlaceHolder1_mainContent_ConveniosDataGrid');" +
+                            "    if(g&&g.Rows&&g.Rows.length>0){" +
+                            "      for(var i=0;i<g.Rows.length;i++){" +
+                            "        var row=g.Rows.getRow(i);if(!row)continue;" +
+                            "        var rt='';try{rt=(row.Element?(row.Element.innerText||row.Element.textContent||'').toUpperCase():'');}catch(e){}" +
+                            "        if(conv===''||rt.indexOf(conv)>=0){" +
+                            "          try{row.Element.click();return 'IG_MATCH:'+i+':'+rt.substring(0,30);}catch(ec){}" +
+                            "        }" +
                             "      }" +
+                            "      var r0=g.Rows.getRow(0);" +
+                            "      if(r0){try{r0.Element.click();return 'IG_FIRST:cnt='+g.Rows.length;}catch(ef){}}" +
                             "    }" +
-                            "  }" +
-                            "  return 'SEL_NF';" +
+                            "  }catch(e){}" +
+                            "  return 'IG_NF';" +
                             "})()");
-                        WriteUiLog("RIPS step4 convenio SELECT: " + selR4);
-                        if (selR4.StartsWith("SEL_OK")) convenioOk = true;
-                        // Estrategia 2: DevExpress combo SetValue (sin SetText)
+                        WriteUiLog("RIPS step4 IG: " + igR4);
+                        if (!igR4.StartsWith("IG_NF")) convenioOk = true;
+                        // Estrategia 2: DOM — filas por id ConveniosDataGrid_r_N
                         if (!convenioOk)
                         {
-                            string dxR4 = JsInRips(
+                            string domR4 = JsInRips(
                                 "(function(){" +
-                                "  var txt='" + eConv4 + "'.toLowerCase();" +
-                                "  for(var k in window){" +
-                                "    try{" +
-                                "      var obj=window[k];" +
-                                "      if(obj&&(k.toLowerCase().indexOf('conv')>=0||k.toLowerCase().indexOf('tipo')>=0||k.toLowerCase().indexOf('plan')>=0)){" +
-                                "        if(typeof obj.GetItemCount==='function'&&typeof obj.SetValue==='function'){" +
-                                "          for(var i=0;i<obj.GetItemCount();i++){" +
-                                "            var item=obj.GetItem(i);" +
-                                "            if(item&&(item.text||'').toLowerCase().indexOf(txt)>=0){" +
-                                "              obj.SetValue(item.value);" +
-                                "              return 'DX_OK:'+k+'|'+item.text;" +
-                                "            }" +
-                                "          }" +
-                                "        }" +
-                                "      }" +
-                                "    }catch(e){}" +
+                                "  var conv='" + eConv4 + "';" +
+                                "  var rows=document.querySelectorAll('[id*=ConveniosDataGrid_r_]');" +
+                                "  for(var j=0;j<rows.length;j++){" +
+                                "    var rt=(rows[j].innerText||rows[j].textContent||'').toUpperCase().trim();" +
+                                "    if(conv===''||rt.indexOf(conv)>=0){rows[j].click();return 'DOM_MATCH:'+j+':'+rt.substring(0,30);}" +
                                 "  }" +
-                                "  return 'DX_NF';" +
+                                "  if(rows.length>0){rows[0].click();return 'DOM_FIRST:'+rows.length;}" +
+                                "  return 'DOM_NF';" +
                                 "})()");
-                            WriteUiLog("RIPS step4 convenio DX: " + dxR4);
-                            if (dxR4.StartsWith("DX_OK")) convenioOk = true;
+                            WriteUiLog("RIPS step4 DOM: " + domR4);
+                            if (!domR4.StartsWith("DOM_NF")) convenioOk = true;
                         }
-                        // Estrategia 3: OS click sobre elemento visible (td/li/div/span/a) con texto del convenio
+                        // Estrategia 3: OS click sobre elemento visible que contiene el texto del convenio
                         if (!convenioOk)
                         {
                             string convPos4 = JsInRips(
                                 "(function(){" +
-                                "  var txt='" + eConv4 + "'.toLowerCase();" +
-                                "  var elems=document.querySelectorAll('td,li,div,span,a');" +
+                                "  var conv='" + eConv4 + "';" +
+                                "  var elems=document.querySelectorAll('td,li,span[onclick],div[onclick]');" +
                                 "  for(var i=0;i<elems.length;i++){" +
-                                "    var t=(elems[i].innerText||elems[i].textContent||'').toLowerCase().trim();" +
-                                "    if((t===txt||t.indexOf(txt)>=0)&&t.length<(txt.length+80)){" +
+                                "    var t=(elems[i].innerText||elems[i].textContent||'').toUpperCase().trim();" +
+                                "    if(conv!==''&&t.indexOf(conv)>=0&&t.length<120){" +
                                 "      var r=elems[i].getBoundingClientRect();" +
                                 "      if(r.width>0&&r.height>0)return Math.round(r.left+(r.width/2))+','+Math.round(r.top+(r.height/2));" +
                                 "    }" +
                                 "  }" +
                                 "  return 'NF';" +
                                 "})()");
-                            WriteUiLog("RIPS step4 convenio OS pos: " + convPos4);
+                            WriteUiLog("RIPS step4 OS pos: " + convPos4);
                             if (convPos4.Contains(",") && !convPos4.StartsWith("NF"))
                             {
                                 try
@@ -2582,7 +2598,7 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                                     var ppC = convPos4.Split(','); var ipC = ifrOffC.Split(',');
                                     int sxC = webBrowser1.PointToScreen(new System.Drawing.Point(0,0)).X + int.Parse(ipC[0].Trim()) + int.Parse(ppC[0].Trim());
                                     int syC = webBrowser1.PointToScreen(new System.Drawing.Point(0,0)).Y + int.Parse(ipC[1].Trim()) + int.Parse(ppC[1].Trim());
-                                    WriteUiLog("RIPS step4 Click OS convenio en: " + sxC + "," + syC);
+                                    WriteUiLog("RIPS step4 Click OS en: " + sxC + "," + syC);
                                     this.Activate(); webBrowser1.Focus();
                                     System.Threading.Thread.Sleep(200);
                                     System.Windows.Forms.Cursor.Position = new System.Drawing.Point(sxC, syC);
@@ -2590,13 +2606,13 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                                     NativeMouseClick(sxC, syC);
                                     convenioOk = true;
                                 }
-                                catch (Exception exC4) { WriteUiLog("RIPS step4 click convenio err: " + exC4.Message); }
+                                catch (Exception exC4) { WriteUiLog("RIPS step4 OS err: " + exC4.Message); }
                             }
                         }
                         if (!convenioOk)
-                            WriteUiLog("RIPS step4 convenio NO encontrado — revisar DIAG para ver selectores disponibles");
+                            WriteUiLog("RIPS step4 ConveniosDataGrid NO encontrado — posible que la lupa no trajo resultados");
                         _ripsStep++;
-                        timer.Interval = 1200;
+                        timer.Interval = 2000;  // esperar postback de seleccion de convenio
                         break;
                     }
 
