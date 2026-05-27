@@ -70,7 +70,7 @@ namespace PanaceaIEWrapper
 
             var lblAppTitle = new Label
             {
-                Text      = "  ⬡  PANACEA RIPS  v1.0",
+                Text      = "  ⬡  PANACEA RIPS  v1.3.0",
                 Dock      = DockStyle.Fill,
                 ForeColor = C_TEXT_DIM,
                 Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
@@ -269,7 +269,7 @@ namespace PanaceaIEWrapper
             // ── FOOTER ───────────────────────────────────────────────────────
             var lblFooter = new Label
             {
-                Text      = "v1.0.0 · github.com/PabloGra77/Bot-rips---PANACEA",
+                Text      = "v1.3.0",
                 Location  = new Point(0, y),
                 Size      = new Size(388, 18),
                 ForeColor = C_TEXT_DIM,

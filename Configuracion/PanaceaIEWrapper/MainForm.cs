@@ -110,10 +110,13 @@ namespace PanaceaIEWrapper
             if (string.IsNullOrWhiteSpace(_username) || string.IsNullOrWhiteSpace(_password))
                 LoadCredentials();
 
-            // LoadRipsExcel() se llama al presionar "Correr Bot", no aquí.
-            // Mostrar archivo seleccionado en la barra lateral si ya viene del StartupForm
+            // Cargar Excel si viene pre-seleccionado desde StartupForm
             if (!string.IsNullOrWhiteSpace(_overrideExcelPath))
+            {
                 txtExcelPath.Text = System.IO.Path.GetFileName(_overrideExcelPath);
+                LoadRipsExcel();
+                UpdateBotProgress();
+            }
 
             // IE COM deshabilitado para evitar doble ventana - todo via WebBrowser embebido
 
@@ -3407,9 +3410,17 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
         {
             if (_ripsRecords == null || _ripsRecords.Count == 0)
             {
-                MessageBox.Show("Cargue primero un archivo base Excel (.xlsx).",
-                    "Sin datos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
+                if (!string.IsNullOrWhiteSpace(_overrideExcelPath))
+                {
+                    LoadRipsExcel();
+                    UpdateBotProgress();
+                }
+                if (_ripsRecords == null || _ripsRecords.Count == 0)
+                {
+                    MessageBox.Show("Cargue primero un archivo base Excel (.xlsx).",
+                        "Sin datos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
             }
             if (_ripsFlowStarted && !_ripsFlowDone)
             {
