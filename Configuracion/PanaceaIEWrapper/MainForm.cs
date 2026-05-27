@@ -1853,7 +1853,13 @@ namespace PanaceaIEWrapper
                             // 1. Posicion del TR dentro del iframe
                             string rowPos = JsInFrame(
                                 "(function(){" +
-                                "  var el=document.getElementById('SedesDatagrid_r_0');" +
+                                "  var rows=document.querySelectorAll('[id^=\\x22SedesDatagrid_r_\\x22]');" +
+                                "  var el=null;" +
+                                "  for(var i=0;i<rows.length;i++){" +
+                                "    var t=(rows[i].innerText||rows[i].textContent||'').toUpperCase();" +
+                                "    if(t.indexOf('CALLE 74')>=0){el=rows[i];break;}" +
+                                "  }" +
+                                "  if(!el){el=document.getElementById('SedesDatagrid_r_0');}" +
                                 "  if(!el){return 'NF';}" +
                                 "  var r=el.getBoundingClientRect();" +
                                 "  var cx=Math.round(r.left+80);" +
@@ -1922,8 +1928,13 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                             "  try{" +
                             "    var coll=ASPxClientControl.GetControlCollection();" +
                             "    var cb=coll.GetByName('ContingenciasComboBox');" +
-                            "    if(cb&&cb.SetSelectedIndex){cb.SetSelectedIndex(1);return 'DX-INDEX';}" +
+                            "    if(cb&&cb.SetText){cb.SetText('FACTURACION');return 'DX-TEXT';}" +
                             "    if(cb&&cb.SetValue){cb.SetValue('FACTURACION');return 'DX-VALUE';}" +
+                            "    if(cb&&cb.SetSelectedIndex){" +
+                            "      var items=document.querySelectorAll('[id^=\"ContingenciasComboBox_DDD_L_LBI\"]');" +
+                            "      var idx=1;for(var i=0;i<items.length;i++){if((items[i].innerText||'').toUpperCase().indexOf('FACTURACION')>=0){idx=i;break;}}" +
+                            "      cb.SetSelectedIndex(idx);return 'DX-INDEX:'+idx;" +
+                            "    }" +
                             "  }catch(e){}" +
                             "  return 'DX-FAIL';" +
                             "})()");
@@ -3410,10 +3421,14 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
             _ripsRecordIndex = 0;
             _ripsFlowStarted = false;
             _ripsFlowDone = false;
+            _ripsNavigated = false; // resetear para que 2da+ ejecucion navegue a RIPS
             UpdateSidebarStatus("Iniciando bot...");
             UpdateBotProgress();
-            // Renavegar a la URL principal para disparar el flujo
-            webBrowser1.Navigate(PanaceaUrl);
+            // Si la sede ya fue seleccionada, ir directo al modulo RIPS; si no, flujo completo desde login
+            if (_sedeSelectionDone)
+                webBrowser1.Navigate("http://181.51.196.194/Panacea/FacturacionPaciente/Facturacion_Pacientes/ConsultarEstadoRipsForm.aspx?IdOpcion=828");
+            else
+                webBrowser1.Navigate(PanaceaUrl);
         }
 
         // Pausar Bot

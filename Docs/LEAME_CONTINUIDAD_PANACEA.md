@@ -42,8 +42,8 @@ Conclusión:
 2. Compilar:
    - dotnet build .\Configuracion\PanaceaIEWrapper.sln -c Release
 3. Ejecutar con credenciales:
-   - $env:PANACEA_USER='1016018747'
-   - $env:PANACEA_PASS='Gole2025'
+   - $env:PANACEA_USER='TU_USUARIO'
+   - $env:PANACEA_PASS='TU_CONTRASENA'
    - Start-Process .\Configuracion\PanaceaIEWrapper\bin\Release\net472\PanaceaIEWrapper.exe
 4. Revisar resultados en log:
    - Buscar: "Sede seleccionada", "Contingencia resultado", "Aceptar resultado"
