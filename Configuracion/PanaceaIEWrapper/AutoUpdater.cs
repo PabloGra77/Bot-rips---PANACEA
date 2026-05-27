@@ -22,6 +22,7 @@ namespace PanaceaIEWrapper
             public string NewVersion     { get; set; }
             public string CurrentVersion { get; set; }
             public string DownloadUrl    { get; set; }
+            public bool   IsZip          { get; set; }
         }
 
         public static void CheckAndApply()
@@ -61,16 +62,23 @@ namespace PanaceaIEWrapper
                     Version localVersion = Assembly.GetExecutingAssembly().GetName().Version;
                     if (remoteVersion <= localVersion) return null;
 
+                    // Buscar primero .zip (incluye todas las DLLs), luego .exe como fallback
                     Match urlMatch = Regex.Match(json,
-                        "\"browser_download_url\"\\s*:\\s*\"([^\"]+\\.exe)\"",
+                        "\"browser_download_url\"\\s*:\\s*\"([^\"]+\\.zip)\"",
                         RegexOptions.IgnoreCase);
+                    bool isZip = urlMatch.Success;
+                    if (!isZip)
+                        urlMatch = Regex.Match(json,
+                            "\"browser_download_url\"\\s*:\\s*\"([^\"]+\\.exe)\"",
+                            RegexOptions.IgnoreCase);
                     if (!urlMatch.Success) return null;
 
                     return new UpdateInfo
                     {
                         CurrentVersion = localVersion.ToString(3),
                         NewVersion     = remoteVersion.ToString(3),
-                        DownloadUrl    = urlMatch.Groups[1].Value
+                        DownloadUrl    = urlMatch.Groups[1].Value,
+                        IsZip          = isZip
                     };
                 }
             }
@@ -118,17 +126,43 @@ namespace PanaceaIEWrapper
                 return;
             }
 
-            string exePath  = Assembly.GetExecutingAssembly().Location;
-            string tempPath = exePath + ".new";
-            File.WriteAllBytes(tempPath, data);
-
+            string exePath = Assembly.GetExecutingAssembly().Location;
+            string appDir  = Path.GetDirectoryName(exePath);
             string batPath = Path.Combine(Path.GetTempPath(), "panacea_update.bat");
-            File.WriteAllText(batPath,
-                "@echo off\r\n" +
-                "timeout /t 2 /nobreak >nul\r\n" +
-                "move /y \"" + tempPath + "\" \"" + exePath + "\"\r\n" +
-                "start \"\" \"" + exePath + "\"\r\n" +
-                "del \"%~f0\"\r\n");
+
+            if (info.IsZip)
+            {
+                // ZIP: contiene el exe + todas las DLLs — extraer sobre el directorio actual
+                string zipPath = Path.Combine(Path.GetTempPath(), "panacea_update.zip");
+                File.WriteAllBytes(zipPath, data);
+
+                // Usar PowerShell Expand-Archive (disponible en Windows 10+/PS5)
+                // Las comillas internas se manejan con variables de PS para soportar espacios en rutas
+                string psCmd = string.Format(
+                    "$z='{0}'; $d='{1}'; Expand-Archive -Path $z -DestinationPath $d -Force; Remove-Item $z",
+                    zipPath.Replace("'", "''"),
+                    appDir.Replace("'", "''"));
+
+                File.WriteAllText(batPath,
+                    "@echo off\r\n" +
+                    "timeout /t 2 /nobreak >nul\r\n" +
+                    "powershell -NoProfile -NonInteractive -Command \"" + psCmd.Replace("\"", "\\\"") + "\"\r\n" +
+                    "start \"\" \"" + exePath + "\"\r\n" +
+                    "del \"%~f0\"\r\n");
+            }
+            else
+            {
+                // Fallback legacy: solo reemplazar el exe
+                string tempPath = exePath + ".new";
+                File.WriteAllBytes(tempPath, data);
+
+                File.WriteAllText(batPath,
+                    "@echo off\r\n" +
+                    "timeout /t 2 /nobreak >nul\r\n" +
+                    "move /y \"" + tempPath + "\" \"" + exePath + "\"\r\n" +
+                    "start \"\" \"" + exePath + "\"\r\n" +
+                    "del \"%~f0\"\r\n");
+            }
 
             System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("cmd.exe", "/c \"" + batPath + "\"")
             {
