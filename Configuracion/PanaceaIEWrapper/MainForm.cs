@@ -114,8 +114,8 @@ namespace PanaceaIEWrapper
             if (!string.IsNullOrWhiteSpace(_overrideExcelPath))
             {
                 txtExcelPath.Text = System.IO.Path.GetFileName(_overrideExcelPath);
-                LoadRipsExcel();
-                UpdateBotProgress();
+                try { LoadRipsExcel(); UpdateBotProgress(); }
+                catch (Exception exXls) { WriteUiLog("LoadRipsExcel al iniciar (DLL faltante?): " + exXls.Message); }
             }
 
             // IE COM deshabilitado para evitar doble ventana - todo via WebBrowser embebido
@@ -3412,8 +3412,8 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
             {
                 if (!string.IsNullOrWhiteSpace(_overrideExcelPath))
                 {
-                    LoadRipsExcel();
-                    UpdateBotProgress();
+                    try { LoadRipsExcel(); UpdateBotProgress(); }
+                    catch (Exception exXls) { WriteUiLog("LoadRipsExcel en bot click: " + exXls.Message); }
                 }
                 if (_ripsRecords == null || _ripsRecords.Count == 0)
                 {
