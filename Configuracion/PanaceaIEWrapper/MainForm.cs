@@ -1925,30 +1925,43 @@ namespace PanaceaIEWrapper
                             WriteUiLog("Sede sel check: " + selCheck);
                         } catch (Exception ex) { WriteUiLog("Sede click err: " + ex.Message); }
                         break;
-case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dropdown)
-                        // Loguear todos los keys de window con 'contingencia' para diagnostico
-                        string keysDbg = JsInFrame(
-                            "(function(){var r=[];for(var k in window){try{if(k.toLowerCase().indexOf('contingencia')>=0){var o=window[k];r.push(k+':type='+(typeof o));}  }catch(e){}}return r.join('||').substring(0,500)||'NONE';})()" );
-                        WriteUiLog("Contingencia keys: " + keysDbg);
+                    case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dropdown)
                         r = JsInFrame(
                             "(function(){" +
-                            // 1) ASPxClientControl collection
-                            "  try{var coll=ASPxClientControl.GetControlCollection();var cb=coll.GetByName('ContingenciasComboBox');" +
-                            "    if(cb&&cb.SetText){cb.SetText('FACTURACION');return 'DX-TEXT';}" +
-                            "    if(cb&&cb.SetValue){cb.SetValue('FACTURACION');return 'DX-VALUE';}" +
+                            // Estrategia 1: ComboBox por nombre exacto (evita _DDD_L y subcomponentes)
+                            "  var cb=window['ContingenciasComboBox'];" +
+                            "  if(cb&&typeof cb.GetItemCount==='function'){" +
+                            "    for(var i=0;i<cb.GetItemCount();i++){" +
+                            "      var it=cb.GetItem(i);" +
+                            "      if(it&&(it.text||it.value||'').toUpperCase().indexOf('FACTURACION')>=0){" +
+                            "        cb.SetSelectedIndex(i);" +
+                            "        return 'SEL_IDX:'+i+':'+it.text;" +
+                            "      }" +
+                            "    }" +
+                            "    return 'NOT_FOUND:'+cb.GetItemCount();" +
+                            "  }" +
+                            // Estrategia 2: ASPxClientControl collection
+                            "  try{var coll=ASPxClientControl.GetControlCollection();" +
+                            "    var cb2=coll.GetByName('ContingenciasComboBox');" +
+                            "    if(cb2&&typeof cb2.GetItemCount==='function'){" +
+                            "      for(var j=0;j<cb2.GetItemCount();j++){" +
+                            "        var it2=cb2.GetItem(j);" +
+                            "        if(it2&&(it2.text||it2.value||'').toUpperCase().indexOf('FACTURACION')>=0){" +
+                            "          cb2.SetSelectedIndex(j);" +
+                            "          return 'COLL_IDX:'+j+':'+it2.text;" +
+                            "        }" +
+                            "      }" +
+                            "    }" +
                             "  }catch(e){}" +
-                            // 2) window keys scan con 'contingencia'
-                            "  for(var k in window){try{if(k.toLowerCase().indexOf('contingencia')>=0){var o=window[k];" +
-                            "    if(o&&typeof o.SetText==='function'){o.SetText('FACTURACION');return 'WIN_TEXT:'+k;}" +
-                            "    if(o&&typeof o.SetValue==='function'){o.SetValue('FACTURACION');return 'WIN_VAL:'+k;}" +
-                            "  }}catch(e){}}" +
-                            // 3) Dropdown button click
+                            // Estrategia 3: SetValue directo sobre el ComboBox
+                            "  if(cb&&typeof cb.SetValue==='function'){cb.SetValue('FACTURACION');return 'WIN_SV';}" +
+                            // Estrategia 4: Abrir dropdown (ultimo recurso)
                             "  var btn=document.getElementById('ContingenciasComboBox_B-1');" +
                             "  if(btn){btn.click();return 'DROPDOWN_OPEN';}" +
                             "  return 'DX-FAIL';" +
-                            "})()");
+                            "})()" );
                         WriteUiLog("Contingencia DX API: " + r);
-                        if (r == "DX-FAIL" || r == "DROPDOWN_OPEN" || r.StartsWith("EX") || r.StartsWith("NO_"))
+                        if (r == "DX-FAIL" || r == "DROPDOWN_OPEN" || r == null || r.StartsWith("NOT_FOUND"))
                         {
                             if (r == "DROPDOWN_OPEN")
                             {
@@ -2665,6 +2678,9 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                             }
                             WriteUiLog("RIPS step4 sin filas tras 4 reintentos — continuando igual");
                         }
+                        // Serializar Infragistics para asegurar que el convenio quede en el POST de Buscar
+                        if (convenioOk) JsInRips("(function(){try{igtbl_preSubmit();}catch(e){}try{igtbl_serialize('ctl00_ctl00_ContentPlaceHolder1_mainContent_ConveniosDataGrid');}catch(e){}})()");
+                        if (convenioOk) WriteUiLog("RIPS step4 igtbl_preSubmit ejecutado");
                         _convenioRetries = 0;
                         _ripsStep++;
                         timer.Interval = 2000;  // esperar postback de seleccion de convenio
@@ -2705,6 +2721,8 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
 
                     case 6: // Click en BUSCAR — DevExpress DoClick o JS directo
                     {
+                        // Serializar Infragistics antes de Buscar para que el convenio quede en el POST
+                        JsInRips("(function(){try{igtbl_preSubmit();}catch(e){}})()");
                         string buscarR = JsInRips(
                             "(function(){" +
                             // Buscar todos los ASPxClientButton registrados en window y buscar el de Buscar
