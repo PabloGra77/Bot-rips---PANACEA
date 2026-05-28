@@ -3443,6 +3443,11 @@ namespace PanaceaIEWrapper
                     WriteUiLog("Archivo base seleccionado: " + dlg.FileName);
                     // Recargar lista de registros con el nuevo archivo
                     LoadRipsExcel();
+                    int cntExcel = _ripsRecords?.Count ?? 0;
+                    WriteUiLog("Registros cargados: " + cntExcel);
+                    UpdateSidebarStatus(cntExcel > 0
+                        ? cntExcel + " registros cargados del Excel."
+                        : "Advertencia: el Excel no contiene registros validos.");
                     UpdateBotProgress();
                 }
             }
@@ -3571,29 +3576,33 @@ namespace PanaceaIEWrapper
             // 3. Limpiar estado persistido en disco
             ProgressState.Clear();
 
-            // 4. Recargar Excel si hay uno seleccionado
-            if (!string.IsNullOrWhiteSpace(_overrideExcelPath) && File.Exists(_overrideExcelPath))
+            // 4. Si el Excel seleccionado no existe en esta PC, limpiar la ruta
+            if (!string.IsNullOrWhiteSpace(_overrideExcelPath) && !File.Exists(_overrideExcelPath))
             {
-                try { LoadRipsExcel(); }
-                catch (Exception exXls) { WriteUiLog("Reset: error al recargar Excel: " + exXls.Message); }
-            }
-            else if (!string.IsNullOrWhiteSpace(_overrideExcelPath))
-            {
-                // Archivo no existe en esta PC — limpiar la ruta y pedir uno nuevo
+                WriteUiLog("Reset: archivo no existe en esta PC: " + _overrideExcelPath);
                 _overrideExcelPath = string.Empty;
                 txtExcelPath.Text  = string.Empty;
                 MessageBox.Show(
-                    "El archivo Excel anterior no existe en esta PC.\n\nSeleccione un nuevo archivo con el boton \"...\"",
+                    "El archivo Excel de la sesion anterior no existe en esta PC.\n\nSeleccione uno nuevo con el boton ...",
                     "Archivo no encontrado", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
-            // 5. Actualizar UI
-            UpdateBotProgress();
-            UpdateSidebarStatus("Bot reiniciado. Listo para empezar.");
-            WriteUiLog("Bot reiniciado manualmente. Estado limpiado. Indice=0. ProgressState borrado.");
+            // 5. Siempre intentar recargar registros (override path O carpeta 'base')
+            try
+            {
+                LoadRipsExcel();
+                int cnt = _ripsRecords?.Count ?? 0;
+                WriteUiLog("Reset: " + cnt + " registros cargados.");
+                if (cnt > 0)
+                    UpdateSidebarStatus("Bot reiniciado. " + cnt + " registros listos.");
+                else
+                    UpdateSidebarStatus("Bot reiniciado. Sin registros — seleccione un archivo Excel.");
+            }
+            catch (Exception exXls) { WriteUiLog("Reset: error al recargar Excel: " + exXls.Message); }
 
-            // 6. Volver a login / inicio de Panacea
-            try { webBrowser1.Navigate(PanaceaUrl); } catch { }
+            // 6. Actualizar UI
+            UpdateBotProgress();
+            WriteUiLog("Bot reiniciado. Indice=0. ProgressState borrado.");
         }
         private void btnAdmin_Click(object sender, EventArgs e)
         {

@@ -35,7 +35,7 @@ namespace PanaceaIEWrapper
             Text            = "RoBRips";
             FormBorderStyle = FormBorderStyle.None;   // sin bordes del SO � custom border
             StartPosition   = FormStartPosition.CenterScreen;
-            ClientSize      = new Size(460, 540);
+            ClientSize      = new Size(480, 600);
             MaximizeBox     = false;
             MinimizeBox     = false;
             BackColor       = C_BG;
@@ -71,7 +71,7 @@ namespace PanaceaIEWrapper
 
             var lblAppTitle = new Label
             {
-                Text      = "  ●  RoBRips  v1.3.9",
+                Text      = "  ●  RoBRips  v2.0",
                 Dock      = DockStyle.Fill,
                 ForeColor = C_TEXT_DIM,
                 Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
@@ -257,7 +257,7 @@ namespace PanaceaIEWrapper
                 Location = new Point(0, y),
                 Size     = new Size(388, 38)
             };
-            SetHint(_txtUser, "N�mero de documento o usuario");
+            SetHint(_txtUser, "Numero de documento o usuario");
             y += 48;
 
             // -- CAMPO: CONTRASE�A --------------------------------------------
@@ -269,7 +269,7 @@ namespace PanaceaIEWrapper
                 Size                  = new Size(388, 38),
                 UseSystemPasswordChar = true
             };
-            SetHint(_txtPass, "Contrase�a de Panacea");
+            SetHint(_txtPass, "Contrasena de Panacea");
             y += 48;
 
             // -- ERROR LABEL --------------------------------------------------
