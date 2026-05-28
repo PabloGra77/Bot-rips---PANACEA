@@ -24,6 +24,7 @@ namespace PanaceaIEWrapper
         private System.Windows.Forms.Button btnPausarBot;
         private System.Windows.Forms.Button btnContinuarSidebar;
         private System.Windows.Forms.Button btnGenerarInforme;
+        private System.Windows.Forms.Button btnResetBot;
         private System.Windows.Forms.Button btnAdmin;
         private System.Windows.Forms.Label lblStatus;
         private System.Windows.Forms.TextBox txtLog;
@@ -129,18 +130,20 @@ namespace PanaceaIEWrapper
             var pnlBotones = new System.Windows.Forms.Panel
             {
                 Dock = System.Windows.Forms.DockStyle.Top,
-                Height = 204,
+                Height = 244,
                 Padding = new System.Windows.Forms.Padding(8, 6, 8, 0)
             };
             this.btnCorrerBot        = MakeSideBtn(">> Correr Bot",       System.Drawing.Color.FromArgb(40,  167,  69), 42);
             this.btnPausarBot        = MakeSideBtn("|| Pausar Bot",        System.Drawing.Color.FromArgb(255, 153,   0), 36);
             this.btnContinuarSidebar = MakeSideBtn(">> Continuar",         System.Drawing.Color.FromArgb(0,  120, 215), 36);
+            this.btnResetBot         = MakeSideBtn("[x] Reiniciar Bot",    System.Drawing.Color.FromArgb(185,  28,  28), 36);
             this.btnGenerarInforme   = MakeSideBtn("[i] Generar Informe",  System.Drawing.Color.FromArgb(108, 117, 125), 36);
             this.btnAdmin            = MakeSideBtn("[A] Panel Admin",      System.Drawing.Color.FromArgb(52,  58,  64), 36);
             // Add in visual order (first = top)
             pnlBotones.Controls.Add(this.btnCorrerBot);
             pnlBotones.Controls.Add(this.btnPausarBot);
             pnlBotones.Controls.Add(this.btnContinuarSidebar);
+            pnlBotones.Controls.Add(this.btnResetBot);
             pnlBotones.Controls.Add(this.btnGenerarInforme);
             pnlBotones.Controls.Add(this.btnAdmin);
 
@@ -272,6 +275,7 @@ namespace PanaceaIEWrapper
             this.btnCorrerBot.Click        += new System.EventHandler(this.btnCorrerBot_Click);
             this.btnPausarBot.Click        += new System.EventHandler(this.btnPausarBot_Click);
             this.btnContinuarSidebar.Click += new System.EventHandler(this.btnContinuarSidebar_Click);
+            this.btnResetBot.Click         += new System.EventHandler(this.btnResetBot_Click);
             this.btnBrowseExcel.Click      += new System.EventHandler(this.btnBrowseExcel_Click);
             this.btnGenerarInforme.Click   += new System.EventHandler(this.btnGenerarInforme_Click);
             this.btnAdmin.Click            += new System.EventHandler(this.btnAdmin_Click);

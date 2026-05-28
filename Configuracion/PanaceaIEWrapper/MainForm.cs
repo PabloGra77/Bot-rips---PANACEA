@@ -2267,8 +2267,21 @@ namespace PanaceaIEWrapper
             UpdateSidebarStatus("Procesando CC " + (_ripsRecordIndex + 1) + " de " + (_ripsRecords?.Count ?? 0) + "...");
             if (_ripsRecords == null || _ripsRecords.Count == 0)
             {
+                // Si el usuario cargo un Excel y no tiene registros, es un error — no hacer fallback silencioso
+                if (!string.IsNullOrWhiteSpace(_overrideExcelPath))
+                {
+                    WriteUiLog("StartRipsFlow: Excel cargado pero sin registros validos. Abortando.");
+                    _ripsFlowDone = true;
+                    UpdateSidebarStatus("Error: el archivo Excel no tiene registros validos.");
+                    MessageBox.Show(
+                        "El archivo Excel seleccionado no contiene registros validos.\n\n" +
+                        "Verifique que el archivo tenga las columnas CC, FECHA INICIO, FECHA FIN y CONVENIO.\n\n" +
+                        "Use el boton [x] Reiniciar Bot para cargar un archivo diferente.",
+                        "Sin datos", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
                 WriteUiLog("StartRipsFlow: sin registros en BASE RIPS. Usando valores de config.");
-                // Fallback a valores de bot-config.json
+                // Fallback a valores de bot-config.json solo si NO se selecciono un Excel
                 _ripsRecords = new List<RipsRecord>
                 {
                     new RipsRecord
@@ -3527,7 +3540,61 @@ namespace PanaceaIEWrapper
             }
         }
 
-        // Panel Admin
+        // Reiniciar Bot — limpia todo el estado y recarga el Excel
+        private void btnResetBot_Click(object sender, EventArgs e)
+        {
+            var res = MessageBox.Show(
+                "Esto detiene el bot, limpia el estado guardado y recarga el archivo Excel.\n\n" +
+                "Use esto cuando el bot quede trabado, en cache, o al cambiar de PC / archivo.\n\n" +
+                "\u00bfDesea continuar?",
+                "Reiniciar Bot", MessageBoxButtons.YesNo, MessageBoxIcon.Question);
+            if (res != DialogResult.Yes) return;
+
+            // 1. Detener todos los timers
+            _ripsTimer?.Stop();
+            _completarTimer?.Stop();
+            _autoLoginTimer?.Stop();
+            _authOutcomeTimer?.Stop();
+
+            // 2. Resetear todos los flags de estado
+            _ripsFlowStarted       = false;
+            _ripsFlowDone          = false;
+            _botPaused             = false;
+            _waitingForUserConvenio = false;
+            _ripsRecordIndex       = 0;
+            _ripsRecords           = null;
+            _sedeSelectionDone     = false;
+            _ripsNavigated         = false;
+            _awaitingCompletarForm = false;
+            _completarStep         = 0;
+
+            // 3. Limpiar estado persistido en disco
+            ProgressState.Clear();
+
+            // 4. Recargar Excel si hay uno seleccionado
+            if (!string.IsNullOrWhiteSpace(_overrideExcelPath) && File.Exists(_overrideExcelPath))
+            {
+                try { LoadRipsExcel(); }
+                catch (Exception exXls) { WriteUiLog("Reset: error al recargar Excel: " + exXls.Message); }
+            }
+            else if (!string.IsNullOrWhiteSpace(_overrideExcelPath))
+            {
+                // Archivo no existe en esta PC — limpiar la ruta y pedir uno nuevo
+                _overrideExcelPath = string.Empty;
+                txtExcelPath.Text  = string.Empty;
+                MessageBox.Show(
+                    "El archivo Excel anterior no existe en esta PC.\n\nSeleccione un nuevo archivo con el boton \"...\"",
+                    "Archivo no encontrado", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+
+            // 5. Actualizar UI
+            UpdateBotProgress();
+            UpdateSidebarStatus("Bot reiniciado. Listo para empezar.");
+            WriteUiLog("Bot reiniciado manualmente. Estado limpiado. Indice=0. ProgressState borrado.");
+
+            // 6. Volver a login / inicio de Panacea
+            try { webBrowser1.Navigate(PanaceaUrl); } catch { }
+        }
         private void btnAdmin_Click(object sender, EventArgs e)
         {
             var form = new AdminForm();

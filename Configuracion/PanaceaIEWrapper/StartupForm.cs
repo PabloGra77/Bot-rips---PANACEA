@@ -71,7 +71,7 @@ namespace PanaceaIEWrapper
 
             var lblAppTitle = new Label
             {
-                Text      = "  ●  RoBRips  v1.3.8",
+                Text      = "  ●  RoBRips  v1.3.9",
                 Dock      = DockStyle.Fill,
                 ForeColor = C_TEXT_DIM,
                 Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
@@ -298,7 +298,7 @@ namespace PanaceaIEWrapper
             // -- FOOTER -------------------------------------------------------
             var lblFooter = new Label
             {
-                Text      = "v1.3.8",
+                Text      = "v1.3.9",
                 Location  = new Point(0, y),
                 Size      = new Size(388, 18),
                 ForeColor = C_TEXT_DIM,
