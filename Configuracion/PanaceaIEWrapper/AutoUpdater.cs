@@ -138,10 +138,18 @@ namespace PanaceaIEWrapper
 
                 // Usar PowerShell Expand-Archive (disponible en Windows 10+/PS5)
                 // Las comillas internas se manejan con variables de PS para soportar espacios en rutas
+                // Backup user config files antes de extraer para no sobreescribirlos
+                string appDirPs = appDir.Replace("'", "''");
                 string psCmd = string.Format(
-                    "$z='{0}'; $d='{1}'; Expand-Archive -Path $z -DestinationPath $d -Force; Remove-Item $z",
+                    "$z='{0}'; $d='{1}'; " +
+                    "$cfg='$d\\bot-config.json'; $bak=if(Test-Path $cfg){{Get-Content -Raw $cfg}}else{{$null}}; " +
+                    "$xcfg='$d\\PanaceaIEWrapper.exe.config'; $xbak=if(Test-Path $xcfg){{Get-Content -Raw $xcfg}}else{{$null}}; " +
+                    "Expand-Archive -Path $z -DestinationPath $d -Force; " +
+                    "if($bak){{Set-Content -Path $cfg -Value $bak -NoNewline}}; " +
+                    "if($xbak){{Set-Content -Path $xcfg -Value $xbak -NoNewline}}; " +
+                    "Remove-Item $z",
                     zipPath.Replace("'", "''"),
-                    appDir.Replace("'", "''"));
+                    appDirPs);
 
                 File.WriteAllText(batPath,
                     "@echo off\r\n" +

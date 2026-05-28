@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -2070,16 +2070,32 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                         else if (header.Contains("CAUSA")) colCausa = c;
                     }
                     // Fallback por posicion si no se encontraron por nombre
-                    if (colCC < 0) colCC = 1;
-                    if (colFI < 0) colFI = 2;
-                    if (colFF < 0) colFF = 3;
+                    // — evitar asignar FF a una columna ya detectada como FINALIDAD u otra
+                    if (colCC  < 0) colCC  = 1;
+                    if (colFI  < 0) colFI  = 2;
+                    if (colFF  < 0)
+                    {
+                        // Buscar la primera columna libre que no sea ya CC/FI/FINALIDAD/CONV/DIAG/CAUSA
+                        for (int fc = 3; fc <= totalCols; fc++)
+                        {
+                            if (fc != colCC && fc != colFI && fc != colFinalidad &&
+                                fc != colConv && fc != colDiag && fc != colCausa)
+                            { colFF = fc; break; }
+                        }
+                        // Si todas las columnas están ocupadas, dejar -1 (FF vendrá del mes de FI)
+                    }
                     if (colConv < 0) colConv = 4;
 
                     for (int r = 2; r <= lastRow; r++)
                     {
                         string cc = CellToString(ws.Cells[r, colCC].Value);
                         string fi = CellToDate(ws.Cells[r, colFI].Value);
-                        string ff = CellToDate(ws.Cells[r, colFF].Value);
+                        // Si no hay columna FF, usar cadena vacía — se calculará como fin del mes de FI
+                        string ff = colFF > 0 ? CellToDate(ws.Cells[r, colFF].Value) : string.Empty;
+                        // Si FF existe pero no es una fecha válida (ej: "OTRA"), descartar
+                        if (!string.IsNullOrWhiteSpace(ff) &&
+                            !System.Text.RegularExpressions.Regex.IsMatch(ff, @"^\d{2}-\d{2}-\d{4}$"))
+                            ff = string.Empty;
                         string conv = CellToString(ws.Cells[r, colConv].Value);
                         string finalidad = colFinalidad > 0 ? CellToString(ws.Cells[r, colFinalidad].Value) : string.Empty;
                         string diagnostico = colDiag > 0 ? CellToString(ws.Cells[r, colDiag].Value) : string.Empty;
@@ -2159,10 +2175,12 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                 {
                     var recR = _ripsRecords[_ripsRecordIndex];
                     // Re-llenar fecha inicio
-                    DateTime fiDateR = ParseRipsDate(recR.FechaInicio, new DateTime(2026,1,1));
+                    DateTime fiDateR = ParseRipsDate(recR.FechaInicio, new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
                     JsInRips("(function(){var dt=new Date(" + fiDateR.Year + "," + (fiDateR.Month-1) + "," + fiDateR.Day + ");var c=window['ctl00_ctl00_ContentPlaceHolder1_mainContent_CntFechas_FechaInicialDateEdit'];if(c&&c.SetDate)c.SetDate(dt);})()");
                     // Re-llenar fecha fin
-                    DateTime ffDateR = ParseRipsDate(recR.FechaFin, new DateTime(2026,4,30));
+                    DateTime ffDateR = ParseRipsDate(recR.FechaFin, DateTime.MinValue);
+                    if (ffDateR == DateTime.MinValue || ffDateR < fiDateR)
+                        ffDateR = new DateTime(fiDateR.Year, fiDateR.Month, DateTime.DaysInMonth(fiDateR.Year, fiDateR.Month));
                     JsInRips("(function(){var dt=new Date(" + ffDateR.Year + "," + (ffDateR.Month-1) + "," + ffDateR.Day + ");var c=window['ctl00_ctl00_ContentPlaceHolder1_mainContent_CntFechas_FechaFinalDateEdit'];if(c&&c.SetDate)c.SetDate(dt);})()");
                     // Re-llenar CC via JS (sin fireEvent para no disparar UpdatePanel)
                     string ccJs = EscapeJs(recR.CC ?? string.Empty);
@@ -2401,8 +2419,31 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                         break;
                     }
 
-                    case 1: // Llenar campo CC — OS mouse click + JS write
+                    case 1: // Llenar campo TipoDocumento (CC) y campo CC — OS mouse click + JS write
                     {
+                        // 1a. Seleccionar TipoDocumento = CC antes de llenar la cédula
+                        string tipDocR = JsInRips(
+                            "(function(){" +
+                            "  try{" +
+                            "    var cb=window['ctl00_ctl00_ContentPlaceHolder1_mainContent_TipoDocumentoComboBox'];" +
+                            "    if(!cb){var coll=ASPxClientControl.GetControlCollection();cb=coll.GetByName('TipoDocumentoComboBox');}" +
+                            "    if(cb&&cb.GetItemCount){" +
+                            "      for(var i=0;i<cb.GetItemCount();i++){" +
+                            "        var it=cb.GetItem(i);" +
+                            "        if(it&&(it.text||'').replace(/\\s/g,'').toUpperCase().indexOf('CC')>=0){" +
+                            "          cb.SetSelectedIndex(i);return 'TIPODOC_CC:'+it.text;" +
+                            "        }" +
+                            "      }" +
+                            "      cb.SetSelectedIndex(1);return 'TIPODOC_IDX1';" +
+                            "    }" +
+                            "  }catch(e){}" +
+                            "  var vi=document.getElementById('ctl00_ctl00_ContentPlaceHolder1_mainContent_TipoDocumentoComboBox_VI');" +
+                            "  var ti=document.getElementById('ctl00_ctl00_ContentPlaceHolder1_mainContent_TipoDocumentoComboBox_I');" +
+                            "  if(vi)vi.value='1'; if(ti)ti.value='CC';" +
+                            "  return 'TIPODOC_DIRECT';" +
+                            "})()");
+                        WriteUiLog("RIPS step1 TipoDocumento: " + tipDocR);
+
                         string cc = _ripsRecords[_ripsRecordIndex].CC ?? string.Empty;
                         string inpPos3 = JsInRips(
                             "(function(){" +
@@ -2476,7 +2517,7 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                                 System.Windows.Forms.Cursor.Position = new System.Drawing.Point(sxF1, syF1);
                                 System.Threading.Thread.Sleep(150); NativeMouseClick(sxF1, syF1); System.Threading.Thread.Sleep(250);
                             }
-                            DateTime fiDate2 = ParseRipsDate(rec2.FechaInicio, new DateTime(2026,1,1));
+                            DateTime fiDate2 = ParseRipsDate(rec2.FechaInicio, new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
                             string fiR2 = JsInRips("(function(){var dt=new Date(" + fiDate2.Year + "," + (fiDate2.Month-1) + "," + fiDate2.Day + ");var c=window['ctl00_ctl00_ContentPlaceHolder1_mainContent_CntFechas_FechaInicialDateEdit'];if(c&&c.SetDate){c.SetDate(dt);return 'DX_OK:" + fiDate2.ToString("dd-MM-yyyy") + "';}var inp=document.getElementById('ctl00_ctl00_ContentPlaceHolder1_mainContent_CntFechas_FechaInicialDateEdit_I');if(inp){inp.value='" + fiDate2.ToString("dd/MM/yyyy") + "';return 'VAL_OK';}return 'NF';})()");
                             WriteUiLog("RIPS step2 FechaInicio set: " + fiR2);
                             // Fecha fin: OS click para activar, luego SetDate via DevExpress
@@ -2490,7 +2531,9 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                                 System.Windows.Forms.Cursor.Position = new System.Drawing.Point(sxF2, syF2);
                                 System.Threading.Thread.Sleep(150); NativeMouseClick(sxF2, syF2); System.Threading.Thread.Sleep(250);
                             }
-                            DateTime ffDate2 = ParseRipsDate(rec2.FechaFin, new DateTime(2026,4,30));
+                            DateTime ffDate2 = ParseRipsDate(rec2.FechaFin, DateTime.MinValue);
+                            if (ffDate2 == DateTime.MinValue || ffDate2 < fiDate2)
+                                ffDate2 = new DateTime(fiDate2.Year, fiDate2.Month, DateTime.DaysInMonth(fiDate2.Year, fiDate2.Month));
                             string ffR2 = JsInRips("(function(){var dt=new Date(" + ffDate2.Year + "," + (ffDate2.Month-1) + "," + ffDate2.Day + ");var c=window['ctl00_ctl00_ContentPlaceHolder1_mainContent_CntFechas_FechaFinalDateEdit'];if(c&&c.SetDate){c.SetDate(dt);return 'DX_OK:" + ffDate2.ToString("dd-MM-yyyy") + "';}var inp=document.getElementById('ctl00_ctl00_ContentPlaceHolder1_mainContent_CntFechas_FechaFinalDateEdit_I');if(inp){inp.value='" + ffDate2.ToString("dd/MM/yyyy") + "';return 'VAL_OK';}return 'NF';})()");
                             WriteUiLog("RIPS step2 FechaFin set: " + ffR2);
                         }
@@ -2610,7 +2653,19 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                             }
                         }
                         if (!convenioOk)
+                        {
                             WriteUiLog("RIPS step4 ConveniosDataGrid NO encontrado — posible que la lupa no trajo resultados");
+                            // Reintentar step4 hasta 4 veces esperando que cargue el AJAX
+                            if (_convenioRetries < 4)
+                            {
+                                _convenioRetries++;
+                                WriteUiLog("RIPS step4 reintento " + _convenioRetries + "/4 en 3s...");
+                                timer.Interval = 3000;
+                                break; // no avanzar _ripsStep, volver a step4
+                            }
+                            WriteUiLog("RIPS step4 sin filas tras 4 reintentos — continuando igual");
+                        }
+                        _convenioRetries = 0;
                         _ripsStep++;
                         timer.Interval = 2000;  // esperar postback de seleccion de convenio
                         break;
@@ -2621,8 +2676,11 @@ case 2: // Seleccionar FACTURACION directamente via DevExpress API (sin abrir dr
                         try
                         {
                             var rec5 = _ripsRecords[_ripsRecordIndex];
-                            DateTime fiDate5 = ParseRipsDate(rec5.FechaInicio, new DateTime(2026, 1, 1));
-                            DateTime ffDate5 = ParseRipsDate(rec5.FechaFin,    new DateTime(2026, 4, 30));
+                            DateTime fiDate5 = ParseRipsDate(rec5.FechaInicio, new DateTime(DateTime.Today.Year, DateTime.Today.Month, 1));
+                            DateTime ffDate5 = ParseRipsDate(rec5.FechaFin, DateTime.MinValue);
+                            if (ffDate5 == DateTime.MinValue || ffDate5 < fiDate5)
+                                ffDate5 = new DateTime(fiDate5.Year, fiDate5.Month,
+                                    DateTime.DaysInMonth(fiDate5.Year, fiDate5.Month));
                             // Una sola llamada JS: FechaFin primero, luego FechaInicio
                             // Así cuando FechaInicio dispare el evento interno, FechaFin ya tiene valor válido
                             string r5 = JsInRips(
