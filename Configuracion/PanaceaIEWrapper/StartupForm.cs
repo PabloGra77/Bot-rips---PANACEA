@@ -70,7 +70,7 @@ namespace PanaceaIEWrapper
 
             var lblAppTitle = new Label
             {
-                Text      = "  ⬡  PANACEA RIPS  v1.3.7",
+                Text      = "  ●  PANACEA RIPS  v1.3.7",
                 Dock      = DockStyle.Fill,
                 ForeColor = C_TEXT_DIM,
                 Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
@@ -87,7 +87,7 @@ namespace PanaceaIEWrapper
             // Boton cerrar (X)
             var btnClose = new Button
             {
-                Text      = "?",
+                Text      = "×",
                 Size      = new Size(40, 40),
                 Dock      = DockStyle.Right,
                 FlatStyle = FlatStyle.Flat,
@@ -101,10 +101,10 @@ namespace PanaceaIEWrapper
             btnClose.FlatAppearance.MouseOverBackColor = Color.FromArgb(200, 30, 30);
             btnClose.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
 
-            // Bot�n Admin (esquina superior derecha, junto al X)
+            // Boton Admin (esquina superior derecha, junto al X)
             var btnAdmin = new Button
             {
-                Text      = "?",
+                Text      = "⚙",
                 Size      = new Size(40, 40),
                 Dock      = DockStyle.Right,
                 FlatStyle = FlatStyle.Flat,
@@ -156,10 +156,10 @@ namespace PanaceaIEWrapper
                     g.DrawEllipse(pen, pnlHero.Width - 60, 20, 80, 80);
                 }
 
-                // Icono robot
-                using (var fIcon = new Font("Segoe UI Emoji", 32f))
-                using (var br2 = new SolidBrush(Color.White))
-                    g.DrawString("??", fIcon, br2, new PointF(28, 18));
+                // Icono bot
+                using (var fIcon = new Font("Segoe UI", 36f, FontStyle.Bold))
+                using (var br2 = new SolidBrush(Color.FromArgb(180, 255, 255, 255)))
+                    g.DrawString("◉", fIcon, br2, new PointF(22, 14));
 
                 // T�tulo
                 using (var fTitle = new Font("Segoe UI", 22f, FontStyle.Bold))
@@ -169,7 +169,7 @@ namespace PanaceaIEWrapper
                 // Subt�tulo
                 using (var fSub = new Font("Segoe UI", 10f))
                 using (var br4 = new SolidBrush(Color.FromArgb(200, 255, 255, 255)))
-                    g.DrawString("Automatizaci�n de radicaci�n RIPS", fSub, br4, new PointF(102, 72));
+                    g.DrawString("Automatización de radicación RIPS", fSub, br4, new PointF(100, 72));
             };
 
             // -- CARD CENTRAL -------------------------------------------------
@@ -191,7 +191,7 @@ namespace PanaceaIEWrapper
             // -- CAMPO: ARCHIVO EXCEL -----------------------------------------
             int y = 18;
 
-            var lblExcel = FieldLabel("??  Archivo base (.xlsx)");
+            var lblExcel = FieldLabel("◆  Archivo base (.xlsx)");
             lblExcel.Location = new Point(0, y);
             y += 26;
 
@@ -207,9 +207,9 @@ namespace PanaceaIEWrapper
                 Size     = new Size(344, 38),
                 ReadOnly = true
             };
-            SetHint(_txtExcel, "Haga clic en � para seleccionar...");
+            SetHint(_txtExcel, "Haga clic en ◈ para seleccionar...");
 
-            var btnBrowse = AccentButton("�", C_ACCENT, 38, 38);
+            var btnBrowse = AccentButton("◈", C_ACCENT, 38, 38);
             btnBrowse.Location = new Point(350, 0);
             btnBrowse.Font     = new Font("Segoe UI", 16f, FontStyle.Bold);
             btnBrowse.Click   += BtnBrowse_Click;
@@ -221,7 +221,7 @@ namespace PanaceaIEWrapper
             var sep1 = CardSep(y); y += 20;
 
             // -- CAMPO: USUARIO -----------------------------------------------
-            var lblUser = FieldLabel("??  Usuario Panacea");
+            var lblUser = FieldLabel("◆  Usuario Panacea");
             lblUser.Location = new Point(0, y); y += 26;
             _txtUser = new ModernTextBox(C_CARD, C_BORDER, C_ACCENT, C_TEXT)
             {
@@ -232,7 +232,7 @@ namespace PanaceaIEWrapper
             y += 48;
 
             // -- CAMPO: CONTRASE�A --------------------------------------------
-            var lblPass = FieldLabel("??  Contrase�a");
+            var lblPass = FieldLabel("◆  Contraseña");
             lblPass.Location = new Point(0, y); y += 26;
             _txtPass = new ModernTextBox(C_CARD, C_BORDER, C_ACCENT, C_TEXT)
             {
@@ -322,11 +322,11 @@ namespace PanaceaIEWrapper
                                ? string.Empty : _txtPass.Text;
 
             if (string.IsNullOrWhiteSpace(excelPath) || !File.Exists(excelPath))
-            { ShowError("?  Seleccione un archivo Excel v�lido."); return; }
+            { ShowError("⚠  Seleccione un archivo Excel válido."); return; }
             if (string.IsNullOrWhiteSpace(user))
-            { ShowError("?  Ingrese su usuario de Panacea."); _txtUser.Focus(); return; }
+            { ShowError("⚠  Ingrese su usuario de Panacea."); _txtUser.Focus(); return; }
             if (string.IsNullOrWhiteSpace(pass))
-            { ShowError("?  Ingrese su contrase�a."); _txtPass.Focus(); return; }
+            { ShowError("⚠  Ingrese su contraseña."); _txtPass.Focus(); return; }
 
             SelectedExcelPath = excelPath;
             PanaceaUsername   = user;
@@ -430,7 +430,7 @@ namespace PanaceaIEWrapper
         {
             var btn = new Button
             {
-                Text      = "?   Iniciar Bot",
+                Text      = "▶   Iniciar Bot",
                 FlatStyle = FlatStyle.Flat,
                 ForeColor = Color.White,
                 BackColor = C_ACCENT,
