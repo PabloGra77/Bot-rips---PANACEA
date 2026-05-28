@@ -32,7 +32,7 @@ namespace PanaceaIEWrapper
         public StartupForm()
         {
             SuspendLayout();
-            Text            = "Panacea RIPS";
+            Text            = "RoBRips";
             FormBorderStyle = FormBorderStyle.None;   // sin bordes del SO � custom border
             StartPosition   = FormStartPosition.CenterScreen;
             ClientSize      = new Size(460, 540);
@@ -40,6 +40,7 @@ namespace PanaceaIEWrapper
             MinimizeBox     = false;
             BackColor       = C_BG;
             Font            = new Font("Segoe UI", 9.5f);
+            try { Icon = System.Drawing.Icon.ExtractAssociatedIcon(Application.ExecutablePath); } catch { }
 
             // Borde redondeado custom (GDI)
             this.Paint += (s, e) =>
@@ -70,7 +71,7 @@ namespace PanaceaIEWrapper
 
             var lblAppTitle = new Label
             {
-                Text      = "  ●  PANACEA RIPS  v1.3.7",
+                Text      = "  ●  RoBRips  v1.3.8",
                 Dock      = DockStyle.Fill,
                 ForeColor = C_TEXT_DIM,
                 Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
@@ -156,20 +157,48 @@ namespace PanaceaIEWrapper
                     g.DrawEllipse(pen, pnlHero.Width - 60, 20, 80, 80);
                 }
 
-                // Icono bot
-                using (var fIcon = new Font("Segoe UI", 36f, FontStyle.Bold))
-                using (var br2 = new SolidBrush(Color.FromArgb(180, 255, 255, 255)))
-                    g.DrawString("◉", fIcon, br2, new PointF(22, 14));
+                // Logo badge: rounded rect con gradiente + letra "R"
+                const int Lsz = 78;
+                using (var logo = new Bitmap(Lsz, Lsz))
+                using (var lg = Graphics.FromImage(logo))
+                {
+                    lg.SmoothingMode = SmoothingMode.AntiAlias;
+                    const int lm = 3, lrad = 20;
+                    var lpath = new GraphicsPath();
+                    int ld = lrad * 2;
+                    lpath.AddArc(lm,        lm,        ld, ld, 180, 90);
+                    lpath.AddArc(Lsz-lm-ld, lm,        ld, ld, 270, 90);
+                    lpath.AddArc(Lsz-lm-ld, Lsz-lm-ld, ld, ld,   0, 90);
+                    lpath.AddArc(lm,        Lsz-lm-ld, ld, ld,  90, 90);
+                    lpath.CloseFigure();
+                    var lrect = new Rectangle(lm, lm, Lsz-2*lm, Lsz-2*lm);
+                    using (var lb = new LinearGradientBrush(lrect,
+                        Color.FromArgb(67, 56, 202), Color.FromArgb(167, 80, 255),
+                        LinearGradientMode.ForwardDiagonal))
+                        lg.FillPath(lb, lpath);
+                    using (var lpen = new Pen(Color.FromArgb(90, 255, 255, 255), 1.5f))
+                        lg.DrawPath(lpen, lpath);
+                    lpath.Dispose();
+                    using (var lf = new Font("Segoe UI", 40f, FontStyle.Bold))
+                    {
+                        var lsf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+                        lg.DrawString("R", lf, Brushes.White, new RectangleF(0, 0, Lsz, Lsz), lsf);
+                        lsf.Dispose();
+                    }
+                    g.SmoothingMode = SmoothingMode.AntiAlias;
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.HighQualityBicubic;
+                    g.DrawImage(logo, 18, 20);
+                }
 
-                // T�tulo
-                using (var fTitle = new Font("Segoe UI", 22f, FontStyle.Bold))
+                // Nombre de la app
+                using (var fTitle = new Font("Segoe UI", 26f, FontStyle.Bold))
                 using (var br3 = new SolidBrush(Color.White))
-                    g.DrawString("Panacea RIPS Bot", fTitle, br3, new PointF(100, 22));
+                    g.DrawString("RoBRips", fTitle, br3, new PointF(110, 18));
 
-                // Subt�tulo
-                using (var fSub = new Font("Segoe UI", 10f))
+                // Subtítulo
+                using (var fSub = new Font("Segoe UI", 9.5f))
                 using (var br4 = new SolidBrush(Color.FromArgb(200, 255, 255, 255)))
-                    g.DrawString("Automatización de radicación RIPS", fSub, br4, new PointF(100, 72));
+                    g.DrawString("Automatización de radicación RIPS", fSub, br4, new PointF(112, 72));
             };
 
             // -- CARD CENTRAL -------------------------------------------------
@@ -269,7 +298,7 @@ namespace PanaceaIEWrapper
             // -- FOOTER -------------------------------------------------------
             var lblFooter = new Label
             {
-                Text      = "v1.3.7",
+                Text      = "v1.3.8",
                 Location  = new Point(0, y),
                 Size      = new Size(388, 18),
                 ForeColor = C_TEXT_DIM,

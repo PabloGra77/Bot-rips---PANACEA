@@ -2817,7 +2817,6 @@ namespace PanaceaIEWrapper
                 "  if(g) return g.outerHTML.substring(0,4000);" +
                 "  return document.body?document.body.innerHTML.substring(0,4000):'NF';" +
                 "})()");
-            try { string gDebug = System.IO.Path.Combine(Application.StartupPath, "Debug"); System.IO.Directory.CreateDirectory(gDebug); System.IO.File.WriteAllText(System.IO.Path.Combine(gDebug, "grid_diag.html"), gridHtml ?? ""); } catch { }
             WriteUiLog("RIPS grid html len=" + (gridHtml ?? "").Length);
             ProcessNextIncompleto();
         }
@@ -3074,17 +3073,9 @@ namespace PanaceaIEWrapper
         private void StartCompletarFlow()
         {
             WriteUiLog("Iniciando flujo Completar RIPS step 0...");
-            // Guardar HTML del formulario para diagnostico
+            // Loguear todos los keys de window con DoClick o SetValue
             try
             {
-                string htmlComp = JsInRips("document.documentElement.outerHTML");
-                if (!htmlComp.StartsWith("ERR") && !htmlComp.StartsWith("NO_DOC"))
-                {
-                    string dbgDir = System.IO.Path.Combine(Application.StartupPath, "Debug");
-                    System.IO.Directory.CreateDirectory(dbgDir);
-                    System.IO.File.WriteAllText(System.IO.Path.Combine(dbgDir, "completar_diag.html"), htmlComp, System.Text.Encoding.UTF8);
-                }
-                // También loguear todos los keys de window con DoClick o SetValue
                 string keysLog = JsInRips(
                     "(function(){var r=[];for(var k in window){try{var o=window[k];if(o&&(typeof o.DoClick==='function'||typeof o.SetValue==='function'))r.push(k);}catch(e){}}return r.join('|').substring(0,2000);})()");
                 WriteUiLog("Completar DX-keys: " + keysLog);
@@ -3169,18 +3160,6 @@ namespace PanaceaIEWrapper
                     case 3: // Seleccionar primera fila del grid de resultados del buscador (Infragistics)
                     {
                         string diag3 = EscapeJs((rec.Diagnostico ?? "").ToUpperInvariant());
-                        // Guardar HTML para diagnóstico
-                        try
-                        {
-                            string htmlRes = JsInRips("document.documentElement.outerHTML");
-                            if (!htmlRes.StartsWith("ERR") && !htmlRes.StartsWith("NO_DOC"))
-                            {
-                                string dbgDir2 = System.IO.Path.Combine(Application.StartupPath, "Debug");
-                                System.IO.Directory.CreateDirectory(dbgDir2);
-                                System.IO.File.WriteAllText(System.IO.Path.Combine(dbgDir2, "diag_result.html"), htmlRes, System.Text.Encoding.UTF8);
-                            }
-                        }
-                        catch { }
                         string r3 = JsInRips(
                             "(function(){" +
                             "  var txt='" + diag3 + "'.toLowerCase();" +
@@ -3432,72 +3411,6 @@ namespace PanaceaIEWrapper
                 }) ?? "0,0";
             }
             catch { return "0,0"; }
-        }
-
-        // ─────────────────────────────────────────────────────────────────────
-        // OCR: buscar texto del convenio en pantalla usando Tesseract
-        // ─────────────────────────────────────────────────────────────────────
-        private System.Drawing.Point? OcrFindConvenio(string convenioText)
-        {
-            try
-            {
-                string tessDir = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-                    "Panacea", "tessdata");
-                string trainedData = Path.Combine(tessDir, "eng.traineddata");
-
-                // Auto-descargar tessdata si no existe
-                if (!File.Exists(trainedData))
-                {
-                    WriteUiLog("OCR: descargando tessdata (eng.traineddata)...");
-                    if (!Directory.Exists(tessDir)) Directory.CreateDirectory(tessDir);
-                    using (var wc = new System.Net.WebClient())
-                        wc.DownloadFile(
-                            "https://github.com/tesseract-ocr/tessdata_fast/raw/main/eng.traineddata",
-                            trainedData);
-                    WriteUiLog("OCR: tessdata descargado en " + tessDir);
-                }
-
-                // Capturar el area del webBrowser en pantalla
-                var bPt = webBrowser1.PointToScreen(new System.Drawing.Point(0, 0));
-                int w = webBrowser1.Width, h = webBrowser1.Height;
-                using (var bmp = new System.Drawing.Bitmap(w, h, System.Drawing.Imaging.PixelFormat.Format32bppArgb))
-                {
-                    using (var g = System.Drawing.Graphics.FromImage(bmp))
-                        g.CopyFromScreen(bPt.X, bPt.Y, 0, 0, new System.Drawing.Size(w, h));
-
-                    string upper = convenioText.Trim().ToUpperInvariant();
-                    WriteUiLog("OCR: buscando '" + upper + "' en screenshot " + w + "x" + h);
-
-                    using (var engine = new Tesseract.TesseractEngine(tessDir, "eng", Tesseract.EngineMode.Default))
-                    using (var pix = Tesseract.PixConverter.ToPix(bmp))
-                    using (var page = engine.Process(pix, Tesseract.PageSegMode.Auto))
-                    using (var iter = page.GetIterator())
-                    {
-                        iter.Begin();
-                        do
-                        {
-                            string word = iter.GetText(Tesseract.PageIteratorLevel.Word) ?? "";
-                            if (word.Trim().ToUpperInvariant().Contains(upper))
-                            {
-                                if (iter.TryGetBoundingBox(Tesseract.PageIteratorLevel.Word, out Tesseract.Rect r))
-                                {
-                                    int cx = bPt.X + r.X1 + (r.X2 - r.X1) / 2;
-                                    int cy = bPt.Y + r.Y1 + (r.Y2 - r.Y1) / 2;
-                                    WriteUiLog("OCR: encontrado '" + word.Trim() + "' en pantalla " + cx + "," + cy);
-                                    return new System.Drawing.Point(cx, cy);
-                                }
-                            }
-                        } while (iter.Next(Tesseract.PageIteratorLevel.Word));
-                    }
-                }
-                WriteUiLog("OCR: texto '" + convenioText + "' NO encontrado en pantalla.");
-            }
-            catch (Exception ex)
-            {
-                WriteUiLog("OCR error: " + ex.Message);
-            }
-            return null;
         }
 
         // ── NUEVOS MÉTODOS DE UI LATERAL ────────────────────────────────────
