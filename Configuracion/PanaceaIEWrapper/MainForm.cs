@@ -2590,7 +2590,8 @@ namespace PanaceaIEWrapper
                             "})()");
                         WriteUiLog("RIPS step4 DIAG: " + diag4);
                         bool convenioOk = false;
-                        // Estrategia 1: Infragistics igtbl API — click en la fila que coincide con el convenio
+                        // Estrategia 1: Infragistics igtbl API — obtener posicion de la fila y OS click
+                        // (row.Element.click() en JS no dispara attachEvent de Infragistics en IE; usar OS click)
                         string igR4 = JsInRips(
                             "(function(){" +
                             "  var conv='" + eConv4 + "';" +
@@ -2601,17 +2602,41 @@ namespace PanaceaIEWrapper
                             "        var row=g.Rows.getRow(i);if(!row)continue;" +
                             "        var rt='';try{rt=(row.Element?(row.Element.innerText||row.Element.textContent||'').toUpperCase():'');}catch(e){}" +
                             "        if(conv===''||rt.indexOf(conv)>=0){" +
-                            "          try{row.Element.click();return 'IG_MATCH:'+i+':'+rt.substring(0,30);}catch(ec){}" +
+                            "          try{var r=row.Element.getBoundingClientRect();if(r.width>0&&r.height>0)return 'IG_POS:'+i+','+Math.round(r.left+r.width/2)+','+Math.round(r.top+r.height/2);}catch(ec){}" +
+                            "          try{row.Element.click();return 'IG_CLICK:'+i;}catch(ec2){}" +
                             "        }" +
                             "      }" +
                             "      var r0=g.Rows.getRow(0);" +
-                            "      if(r0){try{r0.Element.click();return 'IG_FIRST:cnt='+g.Rows.length;}catch(ef){}}" +
+                            "      if(r0){try{var rr=r0.Element.getBoundingClientRect();if(rr.width>0)return 'IG_POS:0,'+Math.round(rr.left+rr.width/2)+','+Math.round(rr.top+rr.height/2);}catch(ef){}try{r0.Element.click();return 'IG_FIRST:cnt='+g.Rows.length;}catch(ef2){}}" +
                             "    }" +
                             "  }catch(e){}" +
                             "  return 'IG_NF';" +
                             "})()");
                         WriteUiLog("RIPS step4 IG: " + igR4);
-                        if (!igR4.StartsWith("IG_NF")) convenioOk = true;
+                        // IG_POS:i,x,y => OS click en la fila (dispara todos los handlers de Infragistics en IE)
+                        if (igR4.StartsWith("IG_POS:"))
+                        {
+                            try
+                            {
+                                var igPosParts = igR4.Substring(7).Split(','); // "i,x,y"
+                                if (igPosParts.Length >= 3)
+                                {
+                                    string ifrOffIG = GetRipsIframeOffset();
+                                    var ipIG = ifrOffIG.Split(',');
+                                    int sxIG = webBrowser1.PointToScreen(new System.Drawing.Point(0,0)).X + int.Parse(ipIG[0].Trim()) + int.Parse(igPosParts[1].Trim());
+                                    int syIG = webBrowser1.PointToScreen(new System.Drawing.Point(0,0)).Y + int.Parse(ipIG[1].Trim()) + int.Parse(igPosParts[2].Trim());
+                                    WriteUiLog("RIPS step4 IG OS click: " + sxIG + "," + syIG);
+                                    this.Activate(); webBrowser1.Focus();
+                                    System.Threading.Thread.Sleep(200);
+                                    System.Windows.Forms.Cursor.Position = new System.Drawing.Point(sxIG, syIG);
+                                    System.Threading.Thread.Sleep(150);
+                                    NativeMouseClick(sxIG, syIG);
+                                    convenioOk = true;
+                                }
+                            }
+                            catch (Exception exIG) { WriteUiLog("RIPS step4 IG OS err: " + exIG.Message); }
+                        }
+                        else if (!igR4.StartsWith("IG_NF")) convenioOk = true;
                         // Estrategia 2: DOM — filas por id ConveniosDataGrid_r_N
                         if (!convenioOk)
                         {

@@ -33,7 +33,7 @@ namespace PanaceaIEWrapper
         {
             SuspendLayout();
             Text            = "Panacea RIPS";
-            FormBorderStyle = FormBorderStyle.None;   // sin bordes del SO — custom border
+            FormBorderStyle = FormBorderStyle.None;   // sin bordes del SO ï¿½ custom border
             StartPosition   = FormStartPosition.CenterScreen;
             ClientSize      = new Size(460, 540);
             MaximizeBox     = false;
@@ -70,7 +70,7 @@ namespace PanaceaIEWrapper
 
             var lblAppTitle = new Label
             {
-                Text      = "  ?  PANACEA RIPS  v1.3.6",
+                Text      = "  â¬¡  PANACEA RIPS  v1.3.7",
                 Dock      = DockStyle.Fill,
                 ForeColor = C_TEXT_DIM,
                 Font      = new Font("Segoe UI", 8.5f, FontStyle.Bold),
@@ -101,7 +101,7 @@ namespace PanaceaIEWrapper
             btnClose.FlatAppearance.MouseOverBackColor = Color.FromArgb(200, 30, 30);
             btnClose.Click += (s, e) => { DialogResult = DialogResult.Cancel; Close(); };
 
-            // Botón Admin (esquina superior derecha, junto al X)
+            // Botï¿½n Admin (esquina superior derecha, junto al X)
             var btnAdmin = new Button
             {
                 Text      = "?",
@@ -122,7 +122,7 @@ namespace PanaceaIEWrapper
                 admin.ShowDialog(this);
             };
             var ttAdmin = new ToolTip();
-            ttAdmin.SetToolTip(btnAdmin, "Panel de administración");
+            ttAdmin.SetToolTip(btnAdmin, "Panel de administraciï¿½n");
 
             pnlTop.Controls.Add(lblAppTitle);
             pnlTop.Controls.Add(btnClose);
@@ -149,7 +149,7 @@ namespace PanaceaIEWrapper
                     g.FillRectangle(br, 0, 0, pnlHero.Width, pnlHero.Height);
                 }
 
-                // Círculo decorativo
+                // Cï¿½rculo decorativo
                 using (var pen = new Pen(Color.FromArgb(60, 255, 255, 255), 1))
                 {
                     g.DrawEllipse(pen, pnlHero.Width - 100, -40, 160, 160);
@@ -161,15 +161,15 @@ namespace PanaceaIEWrapper
                 using (var br2 = new SolidBrush(Color.White))
                     g.DrawString("??", fIcon, br2, new PointF(28, 18));
 
-                // Título
+                // Tï¿½tulo
                 using (var fTitle = new Font("Segoe UI", 22f, FontStyle.Bold))
                 using (var br3 = new SolidBrush(Color.White))
                     g.DrawString("Panacea RIPS Bot", fTitle, br3, new PointF(100, 22));
 
-                // Subtítulo
+                // Subtï¿½tulo
                 using (var fSub = new Font("Segoe UI", 10f))
                 using (var br4 = new SolidBrush(Color.FromArgb(200, 255, 255, 255)))
-                    g.DrawString("Automatización de radicación RIPS", fSub, br4, new PointF(102, 72));
+                    g.DrawString("Automatizaciï¿½n de radicaciï¿½n RIPS", fSub, br4, new PointF(102, 72));
             };
 
             // -- CARD CENTRAL -------------------------------------------------
@@ -181,7 +181,7 @@ namespace PanaceaIEWrapper
             };
             pnlCard.Paint += (s, e) =>
             {
-                // línea top accent
+                // lï¿½nea top accent
                 using (var br = new LinearGradientBrush(
                     new Rectangle(0, 0, pnlCard.Width, 2),
                     C_ACCENT, C_ACCENT2, LinearGradientMode.Horizontal))
@@ -207,9 +207,9 @@ namespace PanaceaIEWrapper
                 Size     = new Size(344, 38),
                 ReadOnly = true
             };
-            SetHint(_txtExcel, "Haga clic en › para seleccionar...");
+            SetHint(_txtExcel, "Haga clic en ï¿½ para seleccionar...");
 
-            var btnBrowse = AccentButton("›", C_ACCENT, 38, 38);
+            var btnBrowse = AccentButton("ï¿½", C_ACCENT, 38, 38);
             btnBrowse.Location = new Point(350, 0);
             btnBrowse.Font     = new Font("Segoe UI", 16f, FontStyle.Bold);
             btnBrowse.Click   += BtnBrowse_Click;
@@ -228,11 +228,11 @@ namespace PanaceaIEWrapper
                 Location = new Point(0, y),
                 Size     = new Size(388, 38)
             };
-            SetHint(_txtUser, "Número de documento o usuario");
+            SetHint(_txtUser, "Nï¿½mero de documento o usuario");
             y += 48;
 
-            // -- CAMPO: CONTRASEÑA --------------------------------------------
-            var lblPass = FieldLabel("??  Contraseña");
+            // -- CAMPO: CONTRASEï¿½A --------------------------------------------
+            var lblPass = FieldLabel("??  Contraseï¿½a");
             lblPass.Location = new Point(0, y); y += 26;
             _txtPass = new ModernTextBox(C_CARD, C_BORDER, C_ACCENT, C_TEXT)
             {
@@ -240,7 +240,7 @@ namespace PanaceaIEWrapper
                 Size                  = new Size(388, 38),
                 UseSystemPasswordChar = true
             };
-            SetHint(_txtPass, "Contraseña de Panacea");
+            SetHint(_txtPass, "Contraseï¿½a de Panacea");
             y += 48;
 
             // -- ERROR LABEL --------------------------------------------------
@@ -258,7 +258,7 @@ namespace PanaceaIEWrapper
             };
             y += 34;
 
-            // -- BOTÓN INICIAR ------------------------------------------------
+            // -- BOTï¿½N INICIAR ------------------------------------------------
             var btnStart = GradientStartButton();
             btnStart.Location = new Point(0, y);
             btnStart.Size     = new Size(388, 48);
@@ -269,7 +269,7 @@ namespace PanaceaIEWrapper
             // -- FOOTER -------------------------------------------------------
             var lblFooter = new Label
             {
-                Text      = "v1.3.6",
+                Text      = "v1.3.7",
                 Location  = new Point(0, y),
                 Size      = new Size(388, 18),
                 ForeColor = C_TEXT_DIM,
@@ -322,11 +322,11 @@ namespace PanaceaIEWrapper
                                ? string.Empty : _txtPass.Text;
 
             if (string.IsNullOrWhiteSpace(excelPath) || !File.Exists(excelPath))
-            { ShowError("?  Seleccione un archivo Excel válido."); return; }
+            { ShowError("?  Seleccione un archivo Excel vï¿½lido."); return; }
             if (string.IsNullOrWhiteSpace(user))
             { ShowError("?  Ingrese su usuario de Panacea."); _txtUser.Focus(); return; }
             if (string.IsNullOrWhiteSpace(pass))
-            { ShowError("?  Ingrese su contraseña."); _txtPass.Focus(); return; }
+            { ShowError("?  Ingrese su contraseï¿½a."); _txtPass.Focus(); return; }
 
             SelectedExcelPath = excelPath;
             PanaceaUsername   = user;
@@ -425,7 +425,7 @@ namespace PanaceaIEWrapper
             return btn;
         }
 
-        // Botón con gradiente pintado a mano
+        // Botï¿½n con gradiente pintado a mano
         private static Button GradientStartButton()
         {
             var btn = new Button
