@@ -322,6 +322,7 @@ namespace PanaceaIEWrapper
             Controls.Add(pnlTop);
 
             LoadSavedCredentials();
+            TryPreloadBaseExcel();
             ResumeLayout();
         }
 
@@ -381,6 +382,28 @@ namespace PanaceaIEWrapper
                     _txtUser.Text      = lines[0];
                     _txtUser.ForeColor = C_TEXT;
                 }
+            }
+            catch { }
+        }
+
+        private void TryPreloadBaseExcel()
+        {
+            try
+            {
+                // Si ya hay un archivo seleccionado, no pisar
+                if (_txtExcel.Tag is string s && !string.IsNullOrWhiteSpace(s) && File.Exists(s)) return;
+
+                string baseDir = Path.Combine(
+                    AppDomain.CurrentDomain.BaseDirectory, "base");
+                if (!Directory.Exists(baseDir)) return;
+
+                var files = Directory.GetFiles(baseDir, "*.xlsx");
+                if (files.Length == 0) return;
+
+                string first = files[0];
+                _txtExcel.Text      = Path.GetFileName(first);
+                _txtExcel.Tag       = first;
+                _txtExcel.ForeColor = C_TEXT;
             }
             catch { }
         }

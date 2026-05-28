@@ -73,10 +73,15 @@ namespace PanaceaIEWrapper
                             RegexOptions.IgnoreCase);
                     if (!urlMatch.Success) return null;
 
+                    // Normalizar version: si solo tiene 2 componentes (ej: "2.0"),
+                    // ToString(3) falla. Usamos ToString() sin parametro.
+                    string localStr  = localVersion.Major  + "." + localVersion.Minor  + "." + (localVersion.Build  >= 0 ? localVersion.Build  : 0);
+                    string remoteStr = remoteVersion.Major + "." + remoteVersion.Minor + "." + (remoteVersion.Build >= 0 ? remoteVersion.Build : 0);
+
                     return new UpdateInfo
                     {
-                        CurrentVersion = localVersion.ToString(3),
-                        NewVersion     = remoteVersion.ToString(3),
+                        CurrentVersion = localStr,
+                        NewVersion     = remoteStr,
                         DownloadUrl    = urlMatch.Groups[1].Value,
                         IsZip          = isZip
                     };
