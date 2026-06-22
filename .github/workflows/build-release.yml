@@ -1,0 +1,61 @@
+name: Build RoBRips Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version sin v. Ejemplo: 2.0.2"
+        required: true
+        default: "2.0.2"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          msbuild .\Configuracion\PanaceaIEWrapper\PanaceaIEWrapper.csproj /restore /p:Configuration=Release /p:Platform="Any CPU"
+
+      - name: Package release ZIP
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+          $version = "${{ github.event.inputs.version }}"
+          $publish = ".\publish"
+          $dist = ".\dist"
+          New-Item -ItemType Directory -Force -Path $dist | Out-Null
+          $required = @(
+            "PanaceaIEWrapper.exe",
+            "PanaceaIEWrapper.exe.config",
+            "EPPlus.dll",
+            "bot-config.json",
+            "app.ico"
+          )
+          foreach ($file in $required) {
+            if (!(Test-Path (Join-Path $publish $file))) {
+              throw "Falta archivo obligatorio en publish: $file"
+            }
+          }
+          Push-Location $publish
+          Compress-Archive -Path $required -DestinationPath "..\dist\RoBRips-v$version.zip" -Force
+          Pop-Location
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.event.inputs.version }}
+          name: RoBRips v${{ github.event.inputs.version }}
+          files: dist/RoBRips-v${{ github.event.inputs.version }}.zip
+          make_latest: true
