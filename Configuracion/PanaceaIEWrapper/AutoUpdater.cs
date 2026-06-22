@@ -62,15 +62,29 @@ namespace PanaceaIEWrapper
                     Version localVersion = Assembly.GetExecutingAssembly().GetName().Version;
                     if (remoteVersion <= localVersion) return null;
 
-                    // Buscar primero .zip (incluye todas las DLLs), luego .exe como fallback
+                    // Buscar primero el ZIP correcto de distribución (RoBRips).
+                    // IMPORTANTE: no usar ZIP de código fuente como asset del release, porque
+                    // el actualizador extrae el ZIP sobre la carpeta instalada.
                     Match urlMatch = Regex.Match(json,
-                        "\"browser_download_url\"\\s*:\\s*\"([^\"]+\\.zip)\"",
+                        "\"browser_download_url\"\\s*:\\s*\"([^\"]*RoBRips[^\"]*\\.zip)\"",
                         RegexOptions.IgnoreCase);
                     bool isZip = urlMatch.Success;
+
                     if (!isZip)
+                    {
+                        urlMatch = Regex.Match(json,
+                            "\"browser_download_url\"\\s*:\\s*\"([^\"]*Panacea[^\"]*\\.zip)\"",
+                            RegexOptions.IgnoreCase);
+                        isZip = urlMatch.Success;
+                    }
+
+                    if (!isZip)
+                    {
                         urlMatch = Regex.Match(json,
                             "\"browser_download_url\"\\s*:\\s*\"([^\"]+\\.exe)\"",
                             RegexOptions.IgnoreCase);
+                    }
+
                     if (!urlMatch.Success) return null;
 
                     // Normalizar version: si solo tiene 2 componentes (ej: "2.0"),

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
@@ -2254,7 +2254,7 @@ namespace PanaceaIEWrapper
                             catch (Exception exBOS) { WriteUiLog("Auto-Buscar OS err: " + exBOS.Message); }
                         }
                     }
-                    _awaitingBuscarResult = true;
+                    WaitBuscarResultWithFallback(9000);
                 };
                 tBuscar.Start();
             };
@@ -2399,6 +2399,63 @@ namespace PanaceaIEWrapper
             {
                 return "ERR:" + ex.Message;
             }
+        }
+
+
+        // Evita que el bot quede detenido si Panacea actualiza por AJAX y no dispara DocumentCompleted.
+        private void WaitBuscarResultWithFallback(int delayMs)
+        {
+            _awaitingBuscarResult = true;
+            int myGen = _ripsGeneration;
+            var fallbackTimer = new System.Windows.Forms.Timer { Interval = delayMs };
+            fallbackTimer.Tick += (ts, te) =>
+            {
+                try
+                {
+                    ((System.Windows.Forms.Timer)ts).Stop();
+                    ((System.Windows.Forms.Timer)ts).Dispose();
+                }
+                catch { }
+
+                if (_ripsGeneration != myGen || _botPaused || _waitingForUserConvenio || _ripsFlowDone)
+                    return;
+
+                if (_awaitingBuscarResult)
+                {
+                    _awaitingBuscarResult = false;
+                    WriteUiLog("Fallback Buscar: no llego DocumentCompleted; procesando grid por AJAX.");
+                    StartRipsGridProcessing();
+                }
+            };
+            fallbackTimer.Start();
+        }
+
+        // Evita bloqueo cuando el click Completar abre/actualiza el formulario sin navegación completa.
+        private void WaitCompletarFormWithFallback(int delayMs)
+        {
+            _awaitingCompletarForm = true;
+            int myGen = _ripsGeneration;
+            var fallbackTimer = new System.Windows.Forms.Timer { Interval = delayMs };
+            fallbackTimer.Tick += (ts, te) =>
+            {
+                try
+                {
+                    ((System.Windows.Forms.Timer)ts).Stop();
+                    ((System.Windows.Forms.Timer)ts).Dispose();
+                }
+                catch { }
+
+                if (_ripsGeneration != myGen || _botPaused || _waitingForUserConvenio || _ripsFlowDone)
+                    return;
+
+                if (_awaitingCompletarForm)
+                {
+                    _awaitingCompletarForm = false;
+                    WriteUiLog("Fallback Completar: no llego DocumentCompleted; iniciando flujo Completar con frame actual.");
+                    StartCompletarFlow();
+                }
+            };
+            fallbackTimer.Start();
         }
 
         private void RipsTimer_Tick(object sender, EventArgs e)
@@ -2787,7 +2844,7 @@ namespace PanaceaIEWrapper
                             "})()");
                         WriteUiLog("RIPS step6 Buscar: " + buscarR);
                         WriteUiLog("RIPS step6 Buscar enviado — esperando carga de pagina...");
-                        _awaitingBuscarResult = true;
+                        WaitBuscarResultWithFallback(9000);
                         timer.Stop();
                         break;
                     }
@@ -2937,7 +2994,7 @@ namespace PanaceaIEWrapper
             {
                 // Esperar que cargue el formulario completar
                 _buscarSinResultadoRetries = 0;
-                _awaitingCompletarForm = true;
+                WaitCompletarFormWithFallback(9000);
                 WriteUiLog("RIPS grid: esperando formulario Completar...");
             }
             else if (result != null && result.StartsWith("TODOS_COMPLETOS"))
@@ -3063,7 +3120,7 @@ namespace PanaceaIEWrapper
                                 "  return 'NF';" +
                                 "})()");
                             WriteUiLog("RIPS grid reintento Buscar: " + reBuscar);
-                            _awaitingBuscarResult = true;
+                            WaitBuscarResultWithFallback(9000);
                         };
                         tBuscar.Start();
                     };
@@ -3306,7 +3363,7 @@ namespace PanaceaIEWrapper
                             "})()");
                         WriteUiLog("Completar step6 Guardar: " + r6);
                         timer.Stop();
-                        _awaitingBuscarResult = true;
+                        WaitBuscarResultWithFallback(12000);
                         break;
                     }
                     default:

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Linq;
 using System.Threading;
 using System.Windows.Forms;
@@ -17,6 +17,12 @@ namespace PanaceaIEWrapper
             _singleInstanceMutex = new Mutex(true, "PANACEA_IE_WRAPPER_SINGLE_INSTANCE", out createdNew);
             if (!createdNew)
             {
+                MessageBox.Show(
+                    "Ya hay una instancia de Panacea RIPS abierta o bloqueada en segundo plano.\n\n" +
+                    "Cierre PanaceaIEWrapper.exe desde el Administrador de tareas y vuelva a abrirlo. Si no aparece, reinicie Windows.",
+                    "Panacea RIPS",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Warning);
                 return;
             }
 
